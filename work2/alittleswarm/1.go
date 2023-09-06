@@ -9,25 +9,27 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
+// 并行：2914946300
+// 串行：32270195700
+// 加速比：1:11左右
 func main() {
+	startTime := time.Now()
 	ch := make(chan int) //同步
 	start, end := setStart()
-	mid := (start + end) / 2
-	for i := start; i < mid; i++ {
+
+	for i := start; i <= end; i++ {
 		go work(i, ch)
 
 	}
-	for i := start; i < mid; i++ {
+	for i := start; i <= end; i++ {
 		<-ch
 	}
-	for i := mid; i <= end; i++ {
-		go work(i, ch)
-	}
-	for i := mid; i <= end; i++ {
-		<-ch
-	}
+
+	endTime := time.Since(startTime)
+	println(endTime)
 }
 
 // index 设置到第几页为止
