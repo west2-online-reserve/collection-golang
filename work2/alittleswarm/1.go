@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// 并行：2914946300
+// 并行：28439345600
 // 串行：32270195700
 // 加速比：1:11左右
 func main() {
@@ -54,7 +54,7 @@ func work(index int, ch chan int) {
 
 // 设置起始和结束页
 func setStart() (start int, end int) {
-	totalPage := getTotaoPage()
+	totalPage := getTotalPage()
 	start = 170 + totalPage - 951 //以951为基准
 	end = 270 + totalPage - 951
 	return
@@ -69,7 +69,7 @@ func isWant(date []string, index int) bool {
 }
 
 // 获取总共的页数
-func getTotaoPage() (totalPage int) {
+func getTotalPage() (totalPage int) {
 	url := "https://info22.fzu.edu.cn/lm_list.jsp?PAGENUM=1&wbtreeid=1460"
 	data := get(url)
 	ret := regexp.MustCompile(`totalpage=(.+?)&PAGENUM`)
@@ -88,13 +88,15 @@ func savePage(pageData []byte, author []string, date []string, title []string, i
 	}
 	divContent := htmlquery.Find(doc, "//div[contains(@class, 'v_news_content')]")
 	spanContent := htmlquery.Find(divContent[0], "//p")
+	var b strings.Builder
 	content := ""
 	for _, v := range spanContent {
-		content += htmlquery.InnerText(v)
-		content += "\n"
+		b.WriteString(htmlquery.InnerText(v))
+		b.WriteString("\n")
 	}
 	//divClick := htmlquery.FindOne(doc, "//div[contains(@class, 'conthsj')]") 尝试解析访问人数
 	//tempSpan := htmlquery.FindOne(divClick, ".//span")
+	content = b.String()
 	path := "./" + author[index] + " " + date[index] + " " + title[index] + " " + ".txt"
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
