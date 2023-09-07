@@ -18,9 +18,5 @@ func main() {
 	}
 	slice = slice[:p]
 	slice = append(slice, 114514)
-	fmt.Print("[")
-	for i := 0; i < len(slice)-1; i++ {
-		fmt.Printf("%v ", slice[i])
-	}
-	fmt.Printf("%v]", slice[len(slice)-1])
+	fmt.Print(slice)
 }

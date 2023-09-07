@@ -12,7 +12,7 @@ func main() {
 	}
 	fmt.Scan(&reachable)
 	reachable = reachable + 30
-	var cnt = 0
+	cnt := 0
 	for i := 0; i < 10; i++ {
 		if apples[i] <= reachable {
 			cnt = cnt + 1

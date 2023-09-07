@@ -16,13 +16,13 @@ func generateIntSequence(min, max int, seq []int, size int) {
 func main() {
 	value_map := make(map[int]([]int))
 	seq := make([]int, 25)
-	go generateIntSequence(0, 25, seq, cap(seq))
+	generateIntSequence(0, 25, seq, cap(seq))
 	except_num := rand.Intn(25)
 	fmt.Printf("期望和值:%v\n已生成序列:%v", except_num, seq)
 	for i := 0; i < len(seq); i++ {
 		value_map[seq[i]] = append(value_map[seq[i]], i+1)
 	}
-	//fmt.Print(value_map)	//test
+	//fmt.Print(value_map) //test
 	for i := 0; i <= except_num; i-- {
 		if except_num == i*2 && len(value_map[i]) > 1 {
 			fmt.Print("\n[", value_map[i][0], ",", value_map[i][1], "]")

@@ -10,7 +10,7 @@ func isLeap(year int) bool {
 
 func main() {
 	var min, max int
-	var cnt int
+	cnt := 0
 	fmt.Scanf("%v%v", &min, &max)
 	leapMap := make(map[int]int, 10)
 	for i := min; i <= max; i++ {
