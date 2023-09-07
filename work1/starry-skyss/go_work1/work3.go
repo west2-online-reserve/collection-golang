@@ -14,7 +14,7 @@ func main() {
 		}
 	}
 	fmt.Println(count)
-	for i := range slice[:] {
+	for i := range slice {
 		fmt.Print(slice[i], " ")
 	}
 }
