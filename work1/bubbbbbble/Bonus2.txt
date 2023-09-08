@@ -1,0 +1,11 @@
+第一  长度不同。数组从声明时就确定了长度，而切片的长度可以更改。
+第二  类型不同。数组是值类型的，切片是引用类型的。
+第三 底层  数组是一块连续的内存空间，而切片则有三部分，指向数据的指针，大小，容量。
+slice的创建方式有三种
+1. var slice []int={1,2}
+2. slice:=make([]int,size,capacity)
+3. slice:=array[start:end]
+map的创建方式
+m := make(map[string]int)
+m := make(map[string]int, 10)
+m := map[string]string{"one": "leo", "two": "bub"}
