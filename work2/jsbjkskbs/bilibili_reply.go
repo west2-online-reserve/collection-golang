@@ -18,10 +18,10 @@ import (
 
 const (
 	// MySQL信息
-	Username     = "root"           //username 		like 	`root`
-	Password     = "357920"         //password 		like 	`123456`
-	Hostname     = "127.0.0.1:3306" //hostname 		like 	`127.0.0.1:3306`
-	Databasename = "test"           //databasename 	like 	`databasename`
+	Username     = "" //username 		like 	`root`
+	Password     = "" //password 		like 	`123456`
+	Hostname     = "" //hostname 		like 	`127.0.0.1:3306`
+	Databasename = "" //databasename 	like 	`databasename`
 )
 
 const (
@@ -386,7 +386,7 @@ func main() {
 	repliesMainCatchRoutine := NewGoLimit(32)
 	repliesMainInsertRoutine := NewGoLimit(32)
 
-	//协程池2:处理Main页面评论信息整体,并传输子评论链接
+	//协程池1:处理Main页面评论信息整体,并传输子评论链接
 	go func() {
 		for !DataCatchOver {
 			repliesMainCatchRoutine.Add()
@@ -402,7 +402,7 @@ func main() {
 		}
 	}()
 
-	//协程池3:处理Reply页面的评论信息整体
+	//协程池2:处理Reply页面的评论信息整体
 	go func() {
 		for !DataCatchOver {
 			pageReplyCatchRoutine.Add()
@@ -423,7 +423,7 @@ func main() {
 		}
 	}()
 
-	//协程池4:插入到mySQL中
+	//协程池3:插入到mySQL中
 	go func() {
 		for !DataCatchOver {
 			repliesMainInsertRoutine.Add()
@@ -436,7 +436,7 @@ func main() {
 		}
 	}()
 
-	//协程2:控制运行状态
+	//协程:控制运行状态
 	go func() {
 		for !DataCatchOver {
 			if len(repliesInfoDataList) == 0 && len(repliesMainPageDataList) == 0 && len(repliesReplyPageRootList) == 0 && PageReachEnd {
