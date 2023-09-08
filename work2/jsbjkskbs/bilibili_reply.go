@@ -18,10 +18,10 @@ import (
 
 const (
 	// MySQL信息
-	Username     = "" //username 		like 	`root`
-	Password     = "" //password 		like 	`123456`
-	Hostname     = "" //hostname 		like 	`127.0.0.1:3306`
-	Databasename = "" //databasename 	like 	`databasename`
+	Username     = "root"           //username 		like 	`root`
+	Password     = "357920"         //password 		like 	`123456`
+	Hostname     = "127.0.0.1:3306" //hostname 		like 	`127.0.0.1:3306`
+	Databasename = "test"           //databasename 	like 	`databasename`
 )
 
 const (
@@ -39,12 +39,13 @@ const (
 
 	BilibiliReplyApi = "https://api.bilibili.com/x/v2/reply/"
 	Bv               = "BV12341117rG"
-	UserCookie       = ""
+	UserCookie       = ``
 )
 
 // 参考`https://mholt.github.io/json-to-go/`生成
 // Json2Go
-type RepliesPage struct {
+// 主评论数据结构
+type RepliesMainPage struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	TTL     int    `json:"ttl"`
@@ -73,30 +74,45 @@ type RepliesPage struct {
 			Content struct {
 				Message string `json:"message"`
 			} `json:"content"`
-			ChildReplies []struct {
-				Rpid   uint64 `json:"rpid"`
-				Root   uint64 `json:"root"`
-				Parent uint64 `json:"parent"`
-				Like   uint   `json:"like"`
-				Ctime  int64  `json:"ctime"`
-				Member struct {
-					UserName  string `json:"uname"`
-					Mid       string `json:"mid"`
-					Sex       string `json:"sex"`
-					Sign      string `json:"sign"`
-					LevelInfo struct {
-						CurrentLevel int `json:"current_level"`
-					} `json:"level_info"`
-					Vip struct {
-						VipType int `json:"vipType"`
-					} `json:"vip"`
-				}
-				Content struct {
-					Message string `json:"message"`
-				} `json:"content"`
-			} `json:"replies"`
+			ChildReplies []struct{} `json:"replies"`
 		} `json:"replies"`
 	}
+}
+
+// 子评论数据结构
+type RepliesReplyPage struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	TTL     int    `json:"ttl"`
+	Data    struct {
+		Page struct {
+			Num   int `json:"num"`
+			Size  int `json:"size"`
+			Count int `json:"count"`
+		} `json:"page"`
+		Replies []struct {
+			Rpid   uint64 `json:"rpid"`
+			Root   uint64 `json:"root"`
+			Parent uint64 `json:"parent"`
+			Like   uint   `json:"like"`
+			Ctime  int64  `json:"ctime"`
+			Member struct {
+				UserName  string `json:"uname"`
+				Mid       string `json:"mid"`
+				Sex       string `json:"sex"`
+				Sign      string `json:"sign"`
+				LevelInfo struct {
+					CurrentLevel int `json:"current_level"`
+				} `json:"level_info"`
+				Vip struct {
+					VipType int `json:"vipType"`
+				} `json:"vip"`
+			} `json:"member"`
+			Content struct {
+				Message string `json:"message"`
+			} `json:"content"`
+		} `json:"replies"`
+	} `json:"data"`
 }
 
 // Reply结构，用于存入数据库
@@ -118,7 +134,7 @@ type Reply struct {
 // GoLimit(协程限制)
 // ----------------------------------------------------
 type GoLimit struct {
-	cnt chan int
+	routine chan int
 }
 
 func NewGoLimit(maxRoutine int) *GoLimit {
@@ -126,11 +142,11 @@ func NewGoLimit(maxRoutine int) *GoLimit {
 }
 
 func (goLimit *GoLimit) Add() {
-	goLimit.cnt <- 1
+	goLimit.routine <- 1
 }
 
 func (goLimit *GoLimit) Done() {
-	<-goLimit.cnt
+	<-goLimit.routine
 }
 
 //----------------------------------------------------
@@ -196,6 +212,7 @@ func InsertToDatabase(db *sql.DB, reply Reply) {
 	log.Printf("[MySQL]Info:The [%v]Reply inserted successfully\n", reply.replyId)
 }
 
+// 获取Response
 func GetResp(url string) *http.Response {
 	//User-Agent----Map
 	userAgentMap := []string{
@@ -260,61 +277,88 @@ func BvDecode(bv string) string {
 	return strconv.FormatInt((r-add)^xor, 10)
 }
 
+// 组装主评论Url
 func GetBvCommentWeb(bili_bv, bili_mode, bili_type, bili_next string) string {
 	return BilibiliReplyApi + "main?oid=" + BvDecode(bili_bv) + "&type=" + bili_type + "&mode=" + bili_mode + "&next=" + bili_next
 }
 
-func GetRepliesData(resp *http.Response, repliesPageList chan RepliesPage) {
-	defer resp.Body.Close()
-	var repliesPage RepliesPage
-	info, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("[GetRepliesData]Error:%s\n", err)
-	}
-	err = json.Unmarshal(info, &repliesPage)
-	if err != nil {
-		log.Printf("[GetRepliesData]Error:%s\n", err)
-	}
-	if repliesPage.Data.Cursor.IsEnd {
-		PageReachEnd = true
-	}
-	repliesPageList <- repliesPage
+// 组装子评论Url
+func GetChildCommentWeb(bili_bv, root, bili_type, bili_ps, bili_pn string) string {
+	return BilibiliReplyApi + "reply?oid=" + BvDecode(bili_bv) + "&root=" + root + "&type=" + bili_type + "&ps=" + bili_ps + "&pn=" + bili_pn
 }
 
-func GetReply(repliesPage *RepliesPage, replies chan Reply) {
-	for i := 0; i < len(repliesPage.Data.Replies); i++ {
+// 获取主评论的json数据
+func GetMainRepliesData(resp *http.Response, repliesPageList chan RepliesMainPage) {
+	defer resp.Body.Close()
+	var repliesMainPage RepliesMainPage
+	info, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[GetMainRepliesData]Error:%s\n", err)
+	}
+	err = json.Unmarshal(info, &repliesMainPage)
+	if err != nil {
+		log.Printf("[GetMainRepliesData]Error:%s\n", err)
+	}
+	if repliesMainPage.Data.Cursor.IsEnd {
+		PageReachEnd = true
+	}
+	repliesPageList <- repliesMainPage
+}
+
+// 获取子评论的json数据
+func GetChildRepliesData(resp *http.Response) RepliesReplyPage {
+	defer resp.Body.Close()
+	var childRepliesPage RepliesReplyPage
+	info, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[GetChildRepliesData]Error:%s\n", err)
+	}
+	err = json.Unmarshal(info, &childRepliesPage)
+	if err != nil {
+		log.Printf("[GetChildRepliesData]Error:%s\n", err)
+	}
+	return childRepliesPage
+}
+
+// 获取主评论的Reply数据结构
+func GetMainReply(repliesMainPage *RepliesMainPage, replies chan Reply) {
+	for i := 0; i < len(repliesMainPage.Data.Replies); i++ {
 		//母评论
-		userId, _ := strconv.Atoi(repliesPage.Data.Replies[i].Member.Mid)
+		userId, _ := strconv.Atoi(repliesMainPage.Data.Replies[i].Member.Mid)
 		replies <- Reply{
-			repliesPage.Data.Replies[i].Rpid,
-			repliesPage.Data.Replies[i].Root,
-			repliesPage.Data.Replies[i].Parent,
-			repliesPage.Data.Replies[i].Like,
-			time.Unix(repliesPage.Data.Replies[i].Ctime, 0).Format("2006-01-02 15:04:05"),
-			repliesPage.Data.Replies[i].Member.UserName,
+			repliesMainPage.Data.Replies[i].Rpid,
+			repliesMainPage.Data.Replies[i].Root,
+			repliesMainPage.Data.Replies[i].Parent,
+			repliesMainPage.Data.Replies[i].Like,
+			time.Unix(repliesMainPage.Data.Replies[i].Ctime, 0).Format("2006-01-02 15:04:05"),
+			repliesMainPage.Data.Replies[i].Member.UserName,
 			uint64(userId),
-			repliesPage.Data.Replies[i].Member.Sex,
-			repliesPage.Data.Replies[i].Member.Sign,
-			repliesPage.Data.Replies[i].Member.LevelInfo.CurrentLevel,
-			repliesPage.Data.Replies[i].Member.Vip.VipType,
-			repliesPage.Data.Replies[i].Content.Message}
+			repliesMainPage.Data.Replies[i].Member.Sex,
+			repliesMainPage.Data.Replies[i].Member.Sign,
+			repliesMainPage.Data.Replies[i].Member.LevelInfo.CurrentLevel,
+			repliesMainPage.Data.Replies[i].Member.Vip.VipType,
+			repliesMainPage.Data.Replies[i].Content.Message}
+	}
+}
+
+// 获取子评论的Reply数据结构
+func GetReplyReply(repliesReplyPage *RepliesReplyPage, replies chan Reply) {
+	for i := 0; i < len(repliesReplyPage.Data.Replies); i++ {
 		//子评论
-		for j := 0; j < len(repliesPage.Data.Replies[i].ChildReplies); j++ {
-			userId, _ := strconv.Atoi(repliesPage.Data.Replies[i].ChildReplies[j].Member.Mid)
-			replies <- Reply{
-				repliesPage.Data.Replies[i].ChildReplies[j].Rpid,
-				repliesPage.Data.Replies[i].ChildReplies[j].Root,
-				repliesPage.Data.Replies[i].ChildReplies[j].Parent,
-				repliesPage.Data.Replies[i].ChildReplies[j].Like,
-				time.Unix(repliesPage.Data.Replies[i].ChildReplies[j].Ctime, 0).Format("2006-01-02 15:04:05"),
-				repliesPage.Data.Replies[i].ChildReplies[j].Member.UserName,
-				uint64(userId),
-				repliesPage.Data.Replies[i].ChildReplies[j].Member.Sex,
-				repliesPage.Data.Replies[i].ChildReplies[j].Member.Sign,
-				repliesPage.Data.Replies[i].ChildReplies[j].Member.LevelInfo.CurrentLevel,
-				repliesPage.Data.Replies[i].ChildReplies[j].Member.Vip.VipType,
-				repliesPage.Data.Replies[i].ChildReplies[j].Content.Message}
-		}
+		userId, _ := strconv.Atoi(repliesReplyPage.Data.Replies[i].Member.Mid)
+		replies <- Reply{
+			repliesReplyPage.Data.Replies[i].Rpid,
+			repliesReplyPage.Data.Replies[i].Root,
+			repliesReplyPage.Data.Replies[i].Parent,
+			repliesReplyPage.Data.Replies[i].Like,
+			time.Unix(repliesReplyPage.Data.Replies[i].Ctime, 0).Format("2006-01-02 15:04:05"),
+			repliesReplyPage.Data.Replies[i].Member.UserName,
+			uint64(userId),
+			repliesReplyPage.Data.Replies[i].Member.Sex,
+			repliesReplyPage.Data.Replies[i].Member.Sign,
+			repliesReplyPage.Data.Replies[i].Member.LevelInfo.CurrentLevel,
+			repliesReplyPage.Data.Replies[i].Member.Vip.VipType,
+			repliesReplyPage.Data.Replies[i].Content.Message}
 	}
 }
 
@@ -333,54 +377,58 @@ func main() {
 		return
 	}
 
-	respList := make(chan *http.Response, 16)
-	repliesPageDataList := make(chan RepliesPage, 16)
-	repliesInfoDataList := make(chan Reply, 32)
+	next := 1
+	repliesMainPageDataList := make(chan RepliesMainPage, 32)
+	repliesReplyPageRootList := make(chan uint64, 32)
+	repliesInfoDataList := make(chan Reply, 64)
 
-	//协程1:翻页
-	go func() {
-		for next := 0; !PageReachEnd; next++ {
-			respList <- GetResp(GetBvCommentWeb(Bv, "3", "1", strconv.Itoa(next)))
-			time.Sleep(time.Duration(rand.Intn(1000)+500) * (time.Millisecond))
-		}
-	}()
+	pageReplyCatchRoutine := NewGoLimit(32)
+	repliesMainCatchRoutine := NewGoLimit(32)
+	repliesMainInsertRoutine := NewGoLimit(32)
 
-	pageInfoCatchRoutine := NewGoLimit(8)
-	repliesInfoCatchRoutine := NewGoLimit(32)
-	repliesInfoInsertRoutine := NewGoLimit(32)
-
-	//协程池1:抓取页面评论信息整体
+	//协程池2:处理Main页面评论信息整体,并传输子评论链接
 	go func() {
 		for !DataCatchOver {
-			pageInfoCatchRoutine.Add()
+			repliesMainCatchRoutine.Add()
 			go func() {
-				defer pageInfoCatchRoutine.Done()
-				if resp, ok := <-respList; ok {
-					GetRepliesData(resp, repliesPageDataList)
+				defer repliesMainCatchRoutine.Done()
+				if repliesMainPageData, ok := <-repliesMainPageDataList; ok {
+					for i := 0; i < len(repliesMainPageData.Data.Replies); i++ {
+						repliesReplyPageRootList <- repliesMainPageData.Data.Replies[i].Rpid
+					}
+					GetMainReply(&repliesMainPageData, repliesInfoDataList)
 				}
 			}()
 		}
 	}()
 
-	//协程池2:处理页面评论信息整体,并分之为多个评论
+	//协程池3:处理Reply页面的评论信息整体
 	go func() {
 		for !DataCatchOver {
-			repliesInfoCatchRoutine.Add()
+			pageReplyCatchRoutine.Add()
 			go func() {
-				defer repliesInfoCatchRoutine.Done()
-				if repliesPageData, ok := <-repliesPageDataList; ok {
-					GetReply(&repliesPageData, repliesInfoDataList)
+				defer pageReplyCatchRoutine.Done()
+				if rootId, ok := <-repliesReplyPageRootList; ok {
+					for i := 1; ; i++ {
+						childReplyUrl := GetChildCommentWeb(Bv, strconv.FormatUint(rootId, 10), "1", "10", strconv.Itoa(i))
+						resp := GetResp(childReplyUrl)
+						childRepliesData := GetChildRepliesData(resp)
+						GetReplyReply(&childRepliesData, repliesInfoDataList)
+						if childRepliesData.Data.Page.Num*childRepliesData.Data.Page.Size >= childRepliesData.Data.Page.Count {
+							break
+						}
+					}
 				}
 			}()
 		}
 	}()
 
-	//协程池3:插入到mySQL中
+	//协程池4:插入到mySQL中
 	go func() {
 		for !DataCatchOver {
-			repliesInfoInsertRoutine.Add()
+			repliesMainInsertRoutine.Add()
 			go func() {
-				defer repliesInfoInsertRoutine.Done()
+				defer repliesMainInsertRoutine.Done()
 				if reply, ok := <-repliesInfoDataList; ok {
 					InsertToDatabase(db, reply)
 				}
@@ -391,15 +439,23 @@ func main() {
 	//协程2:控制运行状态
 	go func() {
 		for !DataCatchOver {
-			if len(repliesInfoDataList) == 0 && len(repliesPageDataList) == 0 && len(respList) == 0 && PageReachEnd {
+			if len(repliesInfoDataList) == 0 && len(repliesMainPageDataList) == 0 && len(repliesReplyPageRootList) == 0 && PageReachEnd {
 				DataCatchOver = true
-				close(respList)
-				close(repliesPageDataList)
+				close(repliesMainPageDataList)
 				close(repliesInfoDataList)
+				close(repliesReplyPageRootList)
 			}
 			time.Sleep(5 * time.Second)
 		}
 	}()
+
+	//主协程:翻页并抓取Main页面评论信息整体
+	for !PageReachEnd {
+		resp := GetResp(GetBvCommentWeb(Bv, "3", "1", strconv.Itoa(next)))
+		next++
+		GetMainRepliesData(resp, repliesMainPageDataList)
+		time.Sleep(time.Duration(rand.Intn(500)+500) * (time.Millisecond))
+	}
 
 	//主协程:等待数据抓取结束(每5s检测一次)
 	for !DataCatchOver {
