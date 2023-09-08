@@ -454,7 +454,7 @@ func main() {
 		resp := GetResp(GetBvCommentWeb(Bv, "3", "1", strconv.Itoa(next)))
 		next++
 		GetMainRepliesData(resp, repliesMainPageDataList)
-		time.Sleep(time.Duration(rand.Intn(500)+500) * (time.Millisecond))
+		time.Sleep(time.Duration(rand.Intn(1000)+500) * (time.Millisecond))
 	}
 
 	//主协程:等待数据抓取结束(每5s检测一次)
