@@ -12,6 +12,7 @@ func findTarget(target int, num []int) (ok bool, l int, r int) {
 				l = i
 				r = j
 				ok = true
+				return
 			}
 		}
 	}

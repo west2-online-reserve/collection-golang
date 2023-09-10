@@ -16,9 +16,10 @@ func main() {
 }
 func isPrime(x int) bool {
 	var flag = true
-	for i := 2; i < int(math.Sqrt(float64(x))); i++ {
+	for i := 2; i <= int(math.Sqrt(float64(x))); i++ {
 		if x%i == 0 {
 			flag = false
+			return flag
 		}
 	}
 	return flag
