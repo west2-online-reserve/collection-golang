@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/antchfx/htmlquery"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -94,19 +95,22 @@ func savePage(pageData []byte, author []string, date []string, title []string, i
 		b.WriteString(htmlquery.InnerText(v))
 		b.WriteString("\n")
 	}
-	//divClick := htmlquery.FindOne(doc, "//div[contains(@class, 'conthsj')]") 尝试解析访问人数
-	//tempSpan := htmlquery.FindOne(divClick, ".//span")
+	divClick := htmlquery.Find(doc, "//div[contains(@class, 'conthsj')]") // 尝试解析访问人数
+	tempScript := htmlquery.FindOne(divClick[0], "//script")
+	tempString := htmlquery.InnerText(tempScript)
+	re := regexp.MustCompile(`_showDynClicks\("[^"]+", (\d+), (\d+)\)`)
+	match := re.FindStringSubmatch(tempString) //解析获取click的url
+	clickUrl := "https://info22.fzu.edu.cn/system/resource/code/news/click/dynclicks.jsp?clickid=" + match[2] + "&owner=" + match[1] + "&clicktype=wbnews"
+	res := get(clickUrl)
 	content = b.String()
-	path := "./" + author[index] + " " + date[index] + " " + title[index] + " " + ".txt"
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
+	tmp := info{}
+	tmp.Date = date[index]
+	tmp.Content = content
+	tmp.Author = author[index]
+	tmp.Title = title[index]
+	tmp.Clicks, _ = strconv.Atoi(string(res))
+	DB.Create(&tmp)
 	if err != nil {
-
-		return false
-	}
-	defer f.Close()
-	n, err2 := f.WriteString(content)
-	if err2 != nil || n == 0 {
-
 		return false
 	}
 	return true
@@ -174,4 +178,37 @@ func SetRequest(url string) (req *http.Request) {
 	req.Header.Set("Origin", "https://www.bilibili.com")
 	req.Header.Set("Referer", "https://www.bilibili.com/")
 	return
+}
+
+type info struct {
+	Date    string
+	Title   string
+	Content string
+	Author  string
+	Clicks  int
+}
+
+var DB *gorm.DB
+
+// 链接数据库
+func init() {
+	username := "root"
+	password := "root"
+	host := "127.0.0.1"
+	port := 3306
+	dbname := "gorm"
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, dbname)
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		DSN: dsn,
+	}), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+	DB = db
+	err = DB.AutoMigrate(&info{})
+	if err != nil {
+		return
+	}
 }
