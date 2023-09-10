@@ -2,29 +2,20 @@ package main
 
 import (
 	"fmt"
-	"time"
+	"os"
 )
 
-func sayHello() {
-	for i := 0; i < 5; i++ {
-		fmt.Println("Hello")
-		time.Sleep(time.Millisecond * 100)
-	}
-}
-
-func sayWorld() {
-	for i := 0; i < 5; i++ {
-		fmt.Println("World")
-		time.Sleep(time.Millisecond * 100)
-	}
-}
-
 func main() {
-	go sayHello()
-	go sayWorld()
+	file, _ := os.Create("ninenine.txt")
+	defer file.Close()
 
-	// 主协程休眠一段时间，以便让其他协程有机会执行
-	time.Sleep(time.Second)
+	for i := 1; i <= 9; i++ {
+		for j := 1; j <= i; j++ {
+			result := i * j
+			fmt.Fprintf(file, "%d*%d=%d ", i, j, result)
+		}
+		fmt.Fprintln(file)
+	}
 
-	fmt.Println("Main function exiting...")
 }
+
