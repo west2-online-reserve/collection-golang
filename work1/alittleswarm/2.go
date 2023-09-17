@@ -16,5 +16,5 @@ func main() {
 		}
 
 	}
-	print(cnt)
+	fmt.Println(cnt)
 }
