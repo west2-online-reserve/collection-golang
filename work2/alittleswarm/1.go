@@ -2,16 +2,15 @@ package main
 
 import (
 	"fmt"
+	"github.com/antchfx/htmlquery"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"io"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/antchfx/htmlquery"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 // 并行：28439345600
@@ -85,7 +84,7 @@ func savePage(pageData []byte, author []string, date []string, title []string, i
 
 	doc, err := htmlquery.Parse(strings.NewReader(string(pageData)))
 	if err != nil {
-
+		fmt.Println(err)
 		return false
 	}
 	divContent := htmlquery.Find(doc, "//div[contains(@class, 'v_news_content')]")
@@ -100,7 +99,7 @@ func savePage(pageData []byte, author []string, date []string, title []string, i
 	tempScript := htmlquery.FindOne(divClick[0], "//script")
 	tempString := htmlquery.InnerText(tempScript)
 	re := regexp.MustCompile(`_showDynClicks\("[^"]+", (\d+), (\d+)\)`)
-	match := re.FindStringSubmatch(tempString) //解析获取click的url(看别人的才知道是用URL
+	match := re.FindStringSubmatch(tempString) //解析获取click的url
 	clickUrl := "https://info22.fzu.edu.cn/system/resource/code/news/click/dynclicks.jsp?clickid=" + match[2] + "&owner=" + match[1] + "&clicktype=wbnews"
 	res := get(clickUrl)
 	content = b.String()
@@ -121,7 +120,7 @@ func savePage(pageData []byte, author []string, date []string, title []string, i
 func getUrl(data []byte) (list0 []string, list1 []string, list2 []string, list3 []string) {
 	doc, err := htmlquery.Parse(strings.NewReader(string(data)))
 	if err != nil {
-
+		fmt.Println(err)
 		return
 	}
 	li := htmlquery.Find(doc, "//li[contains(@class, 'clearfloat')]")
@@ -147,7 +146,7 @@ func get(url string) (result []byte) {
 	req := SetRequest(url)
 	resp, err := client.Do(req)
 	if err != nil {
-
+		fmt.Println(err)
 		return
 	}
 	result = make([]byte, 0)
@@ -205,11 +204,13 @@ func init() {
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
-		panic(err)
+		fmt.Printf("open db failed,err:", err)
+		return
 	}
 	DB = db
 	err = DB.AutoMigrate(&info{})
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 }

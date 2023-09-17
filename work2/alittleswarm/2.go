@@ -42,6 +42,7 @@ func getReply(list []float64) {
 		data := get(url)
 		doc, err := jsonquery.Parse(strings.NewReader(string(data)))
 		if err != nil {
+			fmt.Printf("wrong in getting reply,err:", err)
 		}
 		total := jsonquery.FindOne(doc, "/data/page/count")
 		total1 := int(total.Value().(float64))
@@ -71,12 +72,12 @@ func spiderPage(i int, v float64, ch chan int) {
 	path := "./第 " + strconv.Itoa(int(v)) + "楼的回复.txt"
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
-		println(err)
+		fmt.Println(err)
 	}
 	defer f.Close()
 	n, err2 := f.Write(data)
 	if err2 != nil || n == 0 {
-		println(err2)
+		fmt.Println(err2)
 	}
 	ch <- i
 }
@@ -117,13 +118,13 @@ func SaveData(data []byte, index int, ch chan int) bool {
 	path := "./第 " + strconv.Itoa(index) + " 页的.txt"
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
-		println(err)
+		fmt.Println(err)
 		return false
 	}
 	defer f.Close()
 	n, err2 := f.Write(data)
 	if err2 != nil || n == 0 {
-		println(err2)
+		fmt.Println(err2)
 		return false
 	}
 
@@ -138,7 +139,7 @@ func get(url string) (result []byte) {
 	req := SetRequest(url)
 	resp, err := client.Do(req)
 	if err != nil {
-		println(err)
+		fmt.Println(err)
 		return
 	}
 	result = make([]byte, 0)
@@ -161,7 +162,7 @@ func get(url string) (result []byte) {
 func SetRequest(url string) (req *http.Request) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		println(err)
+		fmt.Println(err)
 		return
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203")
