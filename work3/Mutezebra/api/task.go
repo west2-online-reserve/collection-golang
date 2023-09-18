@@ -145,3 +145,24 @@ func TaskDeleteHandel() gin.HandlerFunc {
 		return
 	}
 }
+
+func TaskDeleteAllHandel() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req types.TaskDeleteReq
+		err := c.ShouldBind(&req)
+		if err != nil {
+			utils.LogrusObj.Errorln(err)
+			c.JSON(http.StatusBadRequest, ErrorResponse(err))
+			return
+		}
+		l := service.GetTaskSrv()
+		resp, err := l.DeleteAllTask(c.Request.Context(), &req)
+		if err != nil {
+			utils.LogrusObj.Errorln(err)
+			c.JSON(http.StatusInternalServerError, resp)
+			return
+		}
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+}

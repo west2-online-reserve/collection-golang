@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"errors"
 	"gorm.io/gorm"
 	"three/repository/db/model"
 )
@@ -33,14 +34,16 @@ func (dao *TaskDao) Update(task *model.Task) error {
 	return err
 }
 
-func (dao *TaskDao) SearchByText(uid uint, text string) (tasks []*model.Task, count int64, err error) {
+func (dao *TaskDao) SearchByText(uid uint, text string, start int) (tasks []*model.Task, count int64, err error) {
 	text = "%" + text + "%"
-	err = dao.DB.Model(&model.Task{}).Where("uid=? AND (content like ? OR title like ?)", uid, text, text).Find(&tasks).Count(&count).Error
+	err = dao.DB.Model(&model.Task{}).Where("uid=? AND (content like ? OR title like ?)", uid, text, text).Count(&count).
+		Limit(10).Offset((start - 1) * 10).Find(&tasks).Error
 	return tasks, count, err
 }
 
-func (dao *TaskDao) SearchAll(uid uint, status int) (tasks []*model.Task, count int64, err error) {
-	err = dao.DB.Model(&model.Task{}).Where("uid=? AND status=?", uid, status).Find(&tasks).Count(&count).Error
+func (dao *TaskDao) SearchByStatus(uid uint, status int, start int) (tasks []*model.Task, count int64, err error) {
+	err = dao.DB.Model(&model.Task{}).Where("uid=? AND status=?", uid, status).Count(&count).
+		Limit(10).Offset((start - 1) * 10).Find(&tasks).Error
 	return tasks, count, err
 }
 
@@ -54,4 +57,18 @@ func (dao *TaskDao) List(uid uint, limit int, start int) (tasks []*model.Task, c
 func (dao *TaskDao) Delete(task *model.Task) error {
 	err := dao.DB.Delete(&model.Task{}, task).Error
 	return err
+}
+
+func (dao *TaskDao) DeleteAllTask(status int, uid uint) (count int64, err error) {
+	switch status {
+	case 0:
+		err = dao.DB.Model(&model.Task{}).Where("status=?", status).Count(&count).Delete(&model.Task{}).Error
+	case 1:
+		err = dao.DB.Model(&model.Task{}).Where("status=?", status).Count(&count).Delete(&model.Task{}).Error
+	case 3:
+		err = dao.DB.Model(&model.Task{}).Where("uid=?", uid).Count(&count).Delete(&model.Task{}).Error
+	default:
+		return 0, errors.New("delete all task failed")
+	}
+	return count, err
 }

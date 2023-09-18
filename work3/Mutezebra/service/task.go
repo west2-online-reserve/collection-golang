@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"three/pkg/ctl"
 	"three/pkg/e"
@@ -43,13 +44,14 @@ func (s *TaskService) Create(ctx context.Context, req *types.TaskCreateReq) (res
 		Status:  0,
 	}
 
+	task.StartTime = time.Now().Unix()
+	err = taskDao.Create(task)
 	resp = &types.TaskInfoResp{
+		Id:      task.ID,
 		Title:   req.Title,
 		Content: req.Content,
 		Status:  0,
 	}
-	task.StartTime = time.Now().Unix()
-	err = taskDao.Create(task)
 	if err != nil {
 		code = e.CreateTaskFailed
 		return ctl.RespError(err, code), err
@@ -158,6 +160,9 @@ func (s *TaskService) List(ctx context.Context, req *types.TaskListReq) (interfa
 }
 
 func (s *TaskService) SearchByText(ctx context.Context, req *types.TaskSearchReq) (resp interface{}, err error) {
+	if req.Start == 0 {
+		req.Start = 1
+	}
 	code := e.SUCCESS
 	taskDao := dao.NewTaskDao(ctx)
 	userInfo, err := ctl.GetFromContext(ctx)
@@ -165,7 +170,7 @@ func (s *TaskService) SearchByText(ctx context.Context, req *types.TaskSearchReq
 		code = e.GetUserInfoFailed
 		return ctl.RespError(err, code), err
 	}
-	tasks, count, err := taskDao.SearchByText(userInfo.ID, req.Text)
+	tasks, count, err := taskDao.SearchByText(userInfo.ID, req.Text, req.Start)
 	if err != nil {
 		code = e.SearchTaskFailed
 		return ctl.RespError(err, code), err
@@ -183,10 +188,13 @@ func (s *TaskService) SearchByText(ctx context.Context, req *types.TaskSearchReq
 		}
 		results = append(results, data)
 	}
-	return ctl.RespSuccessWithData(ctl.TaskItemList{Count: count, Items: results}, code), nil
+	return ctl.RespSuccessWithData(ctl.TaskItemList{Count: count, Items: results, Page: req.Start}, code), nil
 }
 
 func (s *TaskService) SearchByStatus(ctx context.Context, req *types.TaskSearchReq) (interface{}, error) {
+	if req.Start == 0 {
+		req.Start = 1
+	}
 	code := e.SUCCESS
 	taskDao := dao.NewTaskDao(ctx)
 	userInfo, err := ctl.GetFromContext(ctx)
@@ -194,7 +202,7 @@ func (s *TaskService) SearchByStatus(ctx context.Context, req *types.TaskSearchR
 		code = e.GetUserInfoFailed
 		return ctl.RespError(err, code), err
 	}
-	tasks, count, err := taskDao.SearchAll(userInfo.ID, req.Status)
+	tasks, count, err := taskDao.SearchByStatus(userInfo.ID, req.Status, req.Start)
 	if err != nil {
 		code = e.SearchTaskFailed
 		return ctl.RespError(err, code), err
@@ -212,7 +220,7 @@ func (s *TaskService) SearchByStatus(ctx context.Context, req *types.TaskSearchR
 		}
 		results = append(results, data)
 	}
-	return ctl.RespSuccessWithData(ctl.TaskItemList{Count: count, Items: results}, code), nil
+	return ctl.RespSuccessWithData(ctl.TaskItemList{Count: count, Items: results, Page: req.Start}, code), nil
 }
 
 func (s *TaskService) Delete(ctx context.Context, req *types.TaskDeleteReq) (interface{}, error) {
@@ -234,4 +242,21 @@ func (s *TaskService) Delete(ctx context.Context, req *types.TaskDeleteReq) (int
 		return ctl.RespError(err, code), err
 	}
 	return ctl.RespSuccess(code), nil
+}
+
+func (s *TaskService) DeleteAllTask(ctx context.Context, req *types.TaskDeleteReq) (interface{}, error) {
+	code := e.SUCCESS
+	taskDao := dao.NewTaskDao(ctx)
+	userInfo, err := ctl.GetFromContext(ctx)
+	if err != nil && (userInfo.ID == 0 || userInfo.UserName == "") {
+		code = e.GetUserInfoFailed
+		return ctl.RespError(err, code), err
+	}
+
+	count, err := taskDao.DeleteAllTask(req.Status, userInfo.ID)
+	if err != nil {
+		code = e.DeleteTaskFailed
+		return ctl.RespError(err, code), err
+	}
+	return ctl.RespSuccessWithData(fmt.Sprintf("delete %d of tasks", count), code), nil
 }

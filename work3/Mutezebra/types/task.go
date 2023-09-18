@@ -25,10 +25,12 @@ type TaskListReq struct {
 type TaskSearchReq struct {
 	Text   string `json:"text" form:"text"`
 	Status int    `json:"status" form:"status"`
+	Start  int    `json:"start" form:"start"`
 }
 
 type TaskDeleteReq struct {
-	Id uint `json:"id" form:"id"`
+	Id     uint `json:"id" form:"id"`
+	Status int  `json:"status" form:"status"`
 }
 
 type TaskInfoResp struct {
