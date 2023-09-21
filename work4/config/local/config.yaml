@@ -1,0 +1,21 @@
+system:
+  domain: VideoWebsite
+  httpPort: ":8080"
+  host: "localhost"
+
+redis:
+  redisHost: "127.0.0.1"
+  redisPort: "6379"
+  redisDbName: 0
+  redisPassword: "example"
+  redisNetWord: "tcp"
+
+mysql:
+  default:
+    dialect: "mysql"
+    dbHost: "127.0.0.1"
+    dbPort: "3306"
+    dbName: "VideoWebsite"
+    userName: "example"
+    password: "example"
+    charset: "utf8mb4"
