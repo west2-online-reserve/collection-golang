@@ -25,13 +25,13 @@ func main() {
 	for i := 0; i < 6; i++ {
 		prime := <-ch
 		fmt.Printf("prime:%d\n", prime)
-		out := make(chan int)
-		go filter(ch, out, prime) //每次for都创建了一个filter，判断之后的数是否为质数
-		//那读取了num的不是只有一个filter吗，怎么会这么神奇?????????
-		ch = out //等候至读取out，将out写入ch，进入下一轮for循环
+		out := make(chan int) //创建out，每轮都会创建出一个新的out
+		go filter(ch, out, prime)
+		//每次for都创建了一个新的filter，每个filter判断成功后就会传入out的value实际就是filter的ch，如此反复直到传给最后生成的out被prime接收，进行print
+		ch = out //令ch覆写为out的地址
 	}
 }
 
-//这个代码生成了6个质数
+//这个代码能够判断质数并打印
 //利用了goroutine并发
 //在速度上快于普通写法
