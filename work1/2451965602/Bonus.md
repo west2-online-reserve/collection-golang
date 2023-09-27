@@ -11,3 +11,24 @@ name := map([string]int){
         "zhangShang": 1
         "liShi": 0
  ```
+
+5. 存在复杂度`O(n)`的算法
+
+ ```
+ package main
+ 
+ import "fmt"
+ 
+ func main() {
+ 	var b, n int
+ 	b = 0
+ 	fmt.Scanf("%d", &n)
+ 	for i := 0; i < n; i++ {
+ 		b += 1
+ 	}
+ 	fmt.Println(b)
+ }
+ 
+ ```
+
+   
