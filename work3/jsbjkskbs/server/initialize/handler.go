@@ -79,7 +79,7 @@ func authorTodolistAddHandler() app.HandlerFunc {
 					Status: consts.StatusOK,
 					Data: datastruct.SendingJSONData{
 						Items: []datastruct.TodolistBindJSONSend{
-							datastruct.TodolistBindJSONSend{
+							{
 								Id:       id,
 								Title:    what2do.Title,
 								Owner:    what2do.Owner,
