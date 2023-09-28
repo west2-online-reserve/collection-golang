@@ -15,10 +15,10 @@ import (
 
 const (
 	// MySQL信息
-	Username     = "root"           //username 		like 	`root`
-	Password     = "357920"         //password 		like 	`123456`
-	Hostname     = "127.0.0.1:3306" //hostname 		like 	`127.0.0.1:3306`
-	Databasename = "test"           //databasename 	like 	`databasename`
+	Username     = "" //username 		like 	`root`
+	Password     = "" //password 		like 	`123456`
+	Hostname     = "" //hostname 		like 	`127.0.0.1:3306`
+	Databasename = "" //databasename 	like 	`databasename`
 )
 
 var db *sql.DB
@@ -189,37 +189,38 @@ func MySQLTodoListSearch(depend datastruct.TodolistBindMysqlSearch) ([]datastruc
 	return satisSlice, nil
 }
 
-func MySQLTodoListDelete(depend datastruct.TodolistBindMysqlDelete) error{
+func MySQLTodoListDelete(depend datastruct.TodolistBindMysqlDelete) error {
 	var err error
-	if depend.DeleteMethod&cfg.DeleteAll==cfg.DeleteAll{
-		if _,err=db.Query("delete from todolist where owner=?", depend.Username);err!=nil{
+	if depend.DeleteMethod&cfg.DeleteAll == cfg.DeleteAll {
+		if _, err = db.Query("delete from todolist where owner=?", depend.Username); err != nil {
 			return err
 		}
-	}else{
-		deleteCmd:=fmt.Sprintf("delete from todolist where owner='%s'",depend.Username)
-		idSlice:=make([]int64,len(depend.Idlist))
-		if depend.DeleteMethod&cfg.DeleteWithId==cfg.DeleteWithId{
-			deleteCmd=deleteCmd+" and id=?"
-			copy(idSlice,depend.Idlist)
+	} else {
+		deleteCmd := fmt.Sprintf("delete from todolist where owner='%s'", depend.Username)
+		idSlice := make([]int64, len(depend.Idlist))
+		if depend.DeleteMethod&cfg.DeleteWithId == cfg.DeleteWithId {
+			deleteCmd = deleteCmd + " and id=?"
+			copy(idSlice, depend.Idlist)
 		}
 
-		if depend.DeleteMethod&cfg.DeleteWithStatus==cfg.DeleteWithStatus{
-			deleteCmd=deleteCmd+" and status=?"
+		if depend.DeleteMethod&cfg.DeleteWithStatus == cfg.DeleteWithStatus {
+			deleteCmd = deleteCmd + " and status=?"
 		}
 
-		switch depend.DeleteMethod{
+		switch depend.DeleteMethod {
 		case cfg.DeleteWithId:
-			for index := range idSlice {			if _,err=db.Query(deleteCmd,idSlice[index]);err!=nil{
+			for index := range idSlice {
+				if _, err = db.Query(deleteCmd, idSlice[index]); err != nil {
 					return err
 				}
 			}
 		case cfg.DeleteWithStatus:
-			if _,err=db.Query(deleteCmd,depend.Status);err!=nil{
+			if _, err = db.Query(deleteCmd, depend.Status); err != nil {
 				return err
 			}
-		case cfg.DeleteWithId|cfg.DeleteWithStatus:
-			for index :=range idSlice{
-				if _,err=db.Query(deleteCmd,idSlice[index],depend.Status);err!=nil{
+		case cfg.DeleteWithId | cfg.DeleteWithStatus:
+			for index := range idSlice {
+				if _, err = db.Query(deleteCmd, idSlice[index], depend.Status); err != nil {
 					return err
 				}
 			}
@@ -228,17 +229,17 @@ func MySQLTodoListDelete(depend datastruct.TodolistBindMysqlDelete) error{
 	return nil
 }
 
-func MySQLTodoListModify(depend datastruct.TodolistBindMysqlModify) error{
+func MySQLTodoListModify(depend datastruct.TodolistBindMysqlModify) error {
 	var err error
-	if depend.ModifyMethod&cfg.ModifyAll==cfg.ModifyAll{
-		if _,err=db.Query("update todolist set status = ? where owner = ?",depend.Status,depend.Username);err!=nil{
+	if depend.ModifyMethod&cfg.ModifyAll == cfg.ModifyAll {
+		if _, err = db.Query("update todolist set status = ? where owner = ?", depend.Status, depend.Username); err != nil {
 			return err
 		}
-	}else{
-		idSlice:=make([]int64,len(depend.Idlist))
-		copy(idSlice,depend.Idlist)
-		for index :=range idSlice{
-			if _,err=db.Query("update todolist set status = ? where owner = ? and id = ?",depend.Status,depend.Username,idSlice[index]);err!=nil{
+	} else {
+		idSlice := make([]int64, len(depend.Idlist))
+		copy(idSlice, depend.Idlist)
+		for index := range idSlice {
+			if _, err = db.Query("update todolist set status = ? where owner = ? and id = ?", depend.Status, depend.Username, idSlice[index]); err != nil {
 				return err
 			}
 		}
