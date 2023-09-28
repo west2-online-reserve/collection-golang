@@ -14,17 +14,32 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
 
+// @Summary 注册api
+// @Param username query string true "用户名" minlen(1) maxlen(63)
+// @Param password query string true "密码"   minlen(6) maxlen(15)
+// @Produce application/json
+// @Router /register [post]
 func registerHandler() app.HandlerFunc {
 	return account.Register
 }
 
+// @Summary 登录api
+// @Desciption 获取token
+// @Param username query string true "用户名" minlen(1) maxlen(63)
+// @Param password query string true "密码"   minlen(6) maxlen(15)
+// @Produce application/json
+// @Router /login [post]
 func loginHandler() app.HandlerFunc {
 	return midware.JWTMidWare.LoginHandler
 }
 
+// @Summary 测试api
+// @Produce application/json
+// @Router /test [get]
+
 func testHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
-		c.JSON(200, datastruct.ShortResponse{
+		c.JSON(consts.StatusOK, datastruct.ShortResponse{
 			Status:  consts.StatusOK,
 			Message: "ok",
 			Error:   "",
@@ -32,28 +47,44 @@ func testHandler() app.HandlerFunc {
 	}
 }
 
+// @Summary token_pass组
+// @Description 外部不可用
 func authorizeHandler() app.HandlerFunc {
 	return midware.JWTMidWare.MiddlewareFunc()
 }
 
+// @Summary token测试api
+// @Description token前面要添加Bearer
+// @Tags author
+// @Security ApiKeyAuth
+// @Produce application/json
+// @Router /author/ping [get]
 func authorPingHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		user, _ := c.Get(midware.IdentityKey)
-		c.JSON(200, datastruct.ShortResponse{
-			Status:  consts.StatusBadRequest,
+		c.JSON(consts.StatusOK, datastruct.ShortResponse{
+			Status:  consts.StatusOK,
 			Message: fmt.Sprintf("token passed. Username: %s", user.(*datastruct.User).UserName),
 			Error:   "",
 		})
 	}
 }
 
+// @Summary 添加备忘录api
+// @Description token前面要添加Bearer
+// @Tags author
+// @Security ApiKeyAuth
+// @Param data body datastruct.TodolistBindJSONReceive true "标题,内容,截止日期[yyyy-mm-dd hh:mm:ss]"
+// @Accept application/json
+// @Produce application/json
+// @Router /author/todolist/add [post]
 func authorTodolistAddHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		user, isExist := c.Get(midware.IdentityKey)
 		body, err := c.Body()
 
 		if err != nil {
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
 				Message: "",
 				Error:   err.Error(),
@@ -68,14 +99,14 @@ func authorTodolistAddHandler() app.HandlerFunc {
 
 			if id, err := account.InsertUserTodoList(user.(*datastruct.User).UserName, what2do); err != nil {
 				log.Print("[Error] User[", user.(*datastruct.User).UserName, "] operation:", err)
-				c.JSON(200, datastruct.ShortResponse{
+				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
 					Message: "",
 					Error:   err.Error(),
 				})
 				return
 			} else {
-				c.JSON(200, datastruct.SendingJSONFormat{
+				c.JSON(consts.StatusOK, datastruct.SendingJSONFormat{
 					Status: consts.StatusOK,
 					Data: datastruct.SendingJSONData{
 						Items: []datastruct.TodolistBindJSONSend{
@@ -96,7 +127,7 @@ func authorTodolistAddHandler() app.HandlerFunc {
 				})
 			}
 		} else {
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
 				Message: "",
 				Error:   err.Error(),
@@ -105,13 +136,21 @@ func authorTodolistAddHandler() app.HandlerFunc {
 	}
 }
 
+// @Summary 查找备忘录api
+// @Description token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[keyword],4[all]
+// @Tags author
+// @Security ApiKeyAuth
+// @Param data body datastruct.TodolistBindMysqlSearch true "是否完成,关键字,查找方法"
+// @Accept application/json
+// @Produce application/json
+// @Router /author/todolist/search [post]
 func authorTodolistSearchHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		user, isExist := c.Get(midware.IdentityKey)
 		body, err := c.Body()
 
 		if err != nil {
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
 				Message: "",
 				Error:   err.Error(),
@@ -125,15 +164,14 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 			list, err := mysql.MySQLTodoListSearch(searchCondition)
 
 			if err != nil {
-				c.JSON(200, datastruct.ShortResponse{
+				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
 					Message: "",
 					Error:   err.Error(),
 				})
 				return
 			}
-
-			c.JSON(200, datastruct.SendingJSONFormat{
+			c.JSON(consts.StatusOK, datastruct.SendingJSONFormat{
 				Status: consts.StatusOK,
 				Data: datastruct.SendingJSONData{
 					Items:      list,
@@ -144,7 +182,7 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 			})
 
 		} else {
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
 				Message: "",
 				Error:   err.Error(),
@@ -154,12 +192,20 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 	}
 }
 
+// @Summary 删除备忘录api
+// @Description token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[idlist],4[all]
+// @Tags author
+// @Security ApiKeyAuth
+// @Param data body datastruct.TodolistBindMysqlDelete true "是否完成,id数组,查找方法"
+// @Accept application/json
+// @Produce application/json
+// @Router /author/todolist/delete [delete]
 func authorTodolistDeleteHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		user, isExist := c.Get(midware.IdentityKey)
 		body, err := c.Body()
 		if err != nil {
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
 				Message: "",
 				Error:   err.Error(),
@@ -171,20 +217,20 @@ func authorTodolistDeleteHandler() app.HandlerFunc {
 			json.Unmarshal(body, &deleteCondition)
 			deleteCondition.Username = user.(*datastruct.User).UserName
 			if err := mysql.MySQLTodoListDelete(deleteCondition); err != nil {
-				c.JSON(200, datastruct.ShortResponse{
+				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
 					Message: "",
 					Error:   err.Error(),
 				})
 				return
 			}
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusOK, datastruct.ShortResponse{
 				Status:  consts.StatusOK,
 				Message: "ok",
 				Error:   "",
 			})
 		} else {
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
 				Message: "",
 				Error:   err.Error(),
@@ -194,12 +240,20 @@ func authorTodolistDeleteHandler() app.HandlerFunc {
 	}
 }
 
+// @Summary 更新备忘录api
+// @Description token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[idlist],4[all]
+// @Tags author
+// @Security ApiKeyAuth
+// @Param data body datastruct.TodolistBindMysqlModify true "是否完成,id数组,查找方法"
+// @Accept application/json
+// @Produce application/json
+// @Router /author/todolist/modify [put]
 func authorTodolistModifyHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		user, isExist := c.Get(midware.IdentityKey)
 		body, err := c.Body()
 		if err != nil {
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
 				Message: "",
 				Error:   err.Error(),
@@ -212,14 +266,14 @@ func authorTodolistModifyHandler() app.HandlerFunc {
 			modifyCondition.Username = user.(*datastruct.User).UserName
 
 			if err := mysql.MySQLTodoListModify(modifyCondition); err != nil {
-				c.JSON(200, datastruct.ShortResponse{
+				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
 					Message: "",
 					Error:   err.Error(),
 				})
 				return
 			}
-			c.JSON(200, datastruct.ShortResponse{
+			c.JSON(consts.StatusOK, datastruct.ShortResponse{
 				Status:  consts.StatusOK,
 				Message: "ok",
 				Error:   "",

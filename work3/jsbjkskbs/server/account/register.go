@@ -17,7 +17,7 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := c.BindAndValidate(&reigisterStruct); err != nil {
-		c.JSON(200, datastruct.ShortResponse{
+		c.JSON(consts.StatusOK, datastruct.ShortResponse{
 			Status:  consts.StatusOK,
 			Message: "",
 			Error:   err.Error(),
@@ -28,7 +28,7 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	accountList, err := mysql.MySQLAccountSearch(reigisterStruct.Username)
 
 	if err != nil {
-		c.JSON(200, datastruct.ShortResponse{
+		c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 			Status:  consts.StatusBadRequest,
 			Message: "",
 			Error:   err.Error(),
@@ -37,7 +37,7 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if len(accountList) != 0 {
-		c.JSON(200, datastruct.ShortResponse{
+		c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 			Status:  consts.StatusBadRequest,
 			Message: "",
 			Error:   "username has already existed",
@@ -48,7 +48,7 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	err = mysql.MySQLAccountCreate(reigisterStruct.Username, reigisterStruct.Password)
 
 	if err != nil {
-		c.JSON(200, datastruct.ShortResponse{
+		c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 			Status:  consts.StatusBadRequest,
 			Message: "user creating failed",
 			Error:   err.Error(),
@@ -56,7 +56,7 @@ func Register(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(200, datastruct.ShortResponse{
+	c.JSON(consts.StatusOK, datastruct.ShortResponse{
 		Status:  consts.StatusOK,
 		Message: "ok",
 		Error:   "",

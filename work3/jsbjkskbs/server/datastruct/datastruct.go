@@ -20,15 +20,15 @@ type SendingJSONFormat struct {
 
 type SendingJSONData struct {
 	Items      []TodolistBindJSONSend `json:"items"`
-	TotalItems int                 `json:"count"`
+	TotalItems int                    `json:"count"`
 }
 
 type TodolistBindJSONReceive struct {
-	Title    string `json:"title"`
-	Owner    string `json:"owner"`
-	Text     string `json:"todo"`
-	Deadline string `json:"deadline"`
-	Status   bool   `json:"isdone"`
+	Title    string `json:"title" example:"标题"`
+	Owner    string `json:"owner" swaggerignore:"true"`
+	Text     string `json:"todo" example:"文本"`
+	Deadline string `json:"deadline" example:"2077-01-01 01:01:01"`
+	Status   bool   `json:"isdone" swaggerignore:"true"`
 }
 
 type TodolistBindJSONSend struct {
@@ -54,22 +54,22 @@ type TodolistBindMysqlInsert struct {
 }
 
 type TodolistBindMysqlSearch struct {
-	Status       bool   `json:"isdone"`
-	Key          string `json:"keyword"`
-	SearchMethod int    `json:"method"`
-	Username     string
+	Status       bool   `json:"isdone" example:"true"`
+	Key          string `json:"keyword" example:"OP"`
+	SearchMethod int    `json:"method" example:"1"`
+	Username     string `swaggerignore:"true"`
 }
 
 type TodolistBindMysqlDelete struct {
-	Status       bool    `json:"isdone"`
-	Idlist       []int64 `json:"idlist"`
-	DeleteMethod int     `json:"method"`
-	Username     string
+	Status       bool    `json:"isdone" example:"true"`
+	Idlist       []int64 `json:"idlist" example:[]`
+	DeleteMethod int     `json:"method" example:"1"`
+	Username     string  `swaggerignore:"true"`
 }
 
 type TodolistBindMysqlModify struct {
-	Status       bool    `json:"isdone"`
-	Idlist       []int64 `json:"idlist"`
-	ModifyMethod int     `json:"method"`
-	Username     string
+	Status       bool    `json:"isdone" example:"true"`
+	Idlist       []int64 `json:"idlist" example:[]`
+	ModifyMethod int     `json:"method" example:"1"`
+	Username     string  `swaggerignore:"true"`
 }

@@ -1,10 +1,13 @@
 package initialize
 
 import (
+	"server/cfg"
 	"server/midware"
 	"server/mysql"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/hertz-contrib/swagger"
+	swaggerFiles "github.com/swaggo/files"
 )
 
 // 数据库初始化
@@ -36,6 +39,8 @@ func ServerInit(s *server.Hertz) {
 	s.POST("/login", loginHandler())
 
 	s.GET("/test", testHandler())
+
+	s.GET("/swagger/*any", swagger.WrapHandler(swaggerFiles.Handler,swagger.URL("http://"+cfg.ServerHost+"/swagger/doc.json")))
 
 	authorGroup := s.Group("/author", authorizeHandler())
 
