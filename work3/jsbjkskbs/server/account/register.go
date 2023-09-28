@@ -3,10 +3,10 @@ package account
 import (
 	"context"
 	"log"
+	"server/datastruct"
 	"server/mysql"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
 
@@ -17,9 +17,10 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := c.BindAndValidate(&reigisterStruct); err != nil {
-		c.JSON(200, utils.H{
-			"code": consts.StatusBadRequest,
-			"msg":  err.Error(),
+		c.JSON(200, datastruct.ShortResponse{
+			Status:  consts.StatusOK,
+			Message: "",
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -27,17 +28,19 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	accountList, err := mysql.MySQLAccountSearch(reigisterStruct.Username)
 
 	if err != nil {
-		c.JSON(200, utils.H{
-			"code": consts.StatusBadRequest,
-			"msg":  err.Error(),
+		c.JSON(200, datastruct.ShortResponse{
+			Status:  consts.StatusBadRequest,
+			Message: "",
+			Error:   err.Error(),
 		})
 		return
 	}
 
 	if len(accountList) != 0 {
-		c.JSON(200, utils.H{
-			"code": consts.StatusBadRequest,
-			"msg":  "username exists",
+		c.JSON(200, datastruct.ShortResponse{
+			Status:  consts.StatusBadRequest,
+			Message: "",
+			Error:   "username has already existed",
 		})
 		return
 	}
@@ -45,16 +48,18 @@ func Register(ctx context.Context, c *app.RequestContext) {
 	err = mysql.MySQLAccountCreate(reigisterStruct.Username, reigisterStruct.Password)
 
 	if err != nil {
-		c.JSON(200, utils.H{
-			"code": consts.StatusBadRequest,
-			"msg":  err.Error(),
+		c.JSON(200, datastruct.ShortResponse{
+			Status:  consts.StatusBadRequest,
+			Message: "user creating failed",
+			Error:   err.Error(),
 		})
 		return
 	}
 
-	c.JSON(200, utils.H{
-		"code": consts.StatusOK,
-		"msg":  "registered successfully",
+	c.JSON(200, datastruct.ShortResponse{
+		Status:  consts.StatusOK,
+		Message: "ok",
+		Error:   "",
 	})
 
 	log.Printf("[INFO] User [%s] has registered successfully.", reigisterStruct.Username)

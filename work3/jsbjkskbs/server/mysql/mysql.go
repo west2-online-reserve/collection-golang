@@ -149,7 +149,7 @@ func MySQLTodolistInsert(username string, what2do datastruct.TodolistBindJSONRec
 	return id, nil
 }
 
-func MySQLTodoLIstSearch(depend datastruct.TodolistBindMysqlSearch) ([]datastruct.TodolistBindJSONSend, error) {
+func MySQLTodoListSearch(depend datastruct.TodolistBindMysqlSearch) ([]datastruct.TodolistBindJSONSend, error) {
 	satisSlice := make([]datastruct.TodolistBindJSONSend, 0)
 	var rows *sql.Rows
 	var err error
@@ -165,7 +165,6 @@ func MySQLTodoLIstSearch(depend datastruct.TodolistBindMysqlSearch) ([]datastruc
 		if depend.SearchMethod&cfg.SearchWithKeyWord == cfg.SearchWithKeyWord {
 			searchCmd = searchCmd + fmt.Sprintf(" and (text like '%%%s%%' or title like '%%%s%%')", depend.Key, depend.Key)
 		}
-
 		switch depend.SearchMethod {
 		case cfg.SearchWithKeyWord:
 			rows, err = db.Query(searchCmd)
@@ -188,4 +187,62 @@ func MySQLTodoLIstSearch(depend datastruct.TodolistBindMysqlSearch) ([]datastruc
 	}
 
 	return satisSlice, nil
+}
+
+func MySQLTodoListDelete(depend datastruct.TodolistBindMysqlDelete) error{
+	var err error
+	if depend.DeleteMethod&cfg.DeleteAll==cfg.DeleteAll{
+		if _,err=db.Query("delete from todolist where owner=?", depend.Username);err!=nil{
+			return err
+		}
+	}else{
+		deleteCmd:=fmt.Sprintf("delete from todolist where owner='%s'",depend.Username)
+		idSlice:=make([]int64,len(depend.Idlist))
+		if depend.DeleteMethod&cfg.DeleteWithId==cfg.DeleteWithId{
+			deleteCmd=deleteCmd+" and id=?"
+			copy(idSlice,depend.Idlist)
+		}
+
+		if depend.DeleteMethod&cfg.DeleteWithStatus==cfg.DeleteWithStatus{
+			deleteCmd=deleteCmd+" and status=?"
+		}
+
+		switch depend.DeleteMethod{
+		case cfg.DeleteWithId:
+			for index,_ :=range idSlice{
+				if _,err=db.Query(deleteCmd,idSlice[index]);err!=nil{
+					return err
+				}
+			}
+		case cfg.DeleteWithStatus:
+			if _,err=db.Query(deleteCmd,depend.Status);err!=nil{
+				return err
+			}
+		case cfg.DeleteWithId|cfg.DeleteWithStatus:
+			for index,_:=range idSlice{
+				if _,err=db.Query(deleteCmd,idSlice[index],depend.Status);err!=nil{
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func MySQLTodoListModify(depend datastruct.TodolistBindMysqlModify) error{
+	var err error
+	if depend.ModifyMethod&cfg.ModifyAll==cfg.ModifyAll{
+		if _,err=db.Query("update todolist set status = ? where owner = ?",depend.Status,depend.Username);err!=nil{
+			return err
+		}
+	}else{
+		idSlice:=make([]int64,len(depend.Idlist))
+		copy(idSlice,depend.Idlist)
+		for index,_:=range idSlice{
+			if _,err=db.Query("update todolist set status = ? where owner = ? and id = ?",depend.Status,depend.Username,idSlice[index]);err!=nil{
+				return err
+			}
+		}
+	}
+	return nil
 }

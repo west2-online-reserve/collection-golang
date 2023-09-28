@@ -20,18 +20,18 @@ var (
 	IdentityKey = "indentity"
 )
 
-//密钥
+// 密钥
 const secretKey = "114514"
 
 func JWTInit() {
 	var err error
 	JWTMidWare, err = jwt.New(&jwt.HertzJWTMiddleware{
-		Key:           []byte(secretKey),													//签名密钥
-		Timeout:       time.Hour,															//token有效时间
-		MaxRefresh:    time.Hour,															//token最大刷新时间
-		TokenLookup:   "header: Authorization, query: token, cookie: jwt",					//token获取源 [header,query,cookie,param,form]
-		TokenHeadName: "Bearer",															//header中的token前缀
-		IdentityKey:   IdentityKey,															//检索身份的key
+		Key:           []byte(secretKey),                                  //签名密钥
+		Timeout:       time.Hour,                                          //token有效时间
+		MaxRefresh:    time.Hour,                                          //token最大刷新时间
+		TokenLookup:   "header: Authorization, query: token, cookie: jwt", //token获取源 [header,query,cookie,param,form]
+		TokenHeadName: "Bearer",                                           //header中的token前缀
+		IdentityKey:   IdentityKey,                                        //检索身份的key
 
 		//SigningAlgorithm: "HS256",														//加密算法(optional)
 
@@ -71,18 +71,20 @@ func JWTInit() {
 		//登入相应
 		LoginResponse: func(ctx context.Context, c *app.RequestContext, code int, token string, expire time.Time) {
 			c.JSON(200, utils.H{
-				"code":   code,
-				"token":  token,
-				"expire": expire.Format(time.RFC3339),
-				"msg":    "logined successfully",
+				"status":  code,
+				"token":   token,
+				"expire":  expire.Format(time.RFC3339),
+				"message": "ok",
+				"error":   "",
 			})
 		},
 
 		//登出响应
 		LogoutResponse: func(ctx context.Context, c *app.RequestContext, code int) {
-			c.JSON(200, utils.H{
-				"code": code,
-				"msg":  "account logout",
+			c.JSON(200, datastruct.ShortResponse{
+				Status:  code,
+				Message: "logout successfully",
+				Error:   "",
 			})
 		},
 
@@ -94,9 +96,10 @@ func JWTInit() {
 
 		//JWT token验证失败的响应
 		Unauthorized: func(ctx context.Context, c *app.RequestContext, code int, message string) {
-			c.JSON(200, utils.H{
-				"code": code,
-				"msg":  message,
+			c.JSON(200, datastruct.ShortResponse{
+				Status:  code,
+				Message: "token claiming failed",
+				Error:   message,
 			})
 		},
 
