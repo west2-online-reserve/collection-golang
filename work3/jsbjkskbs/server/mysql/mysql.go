@@ -209,8 +209,7 @@ func MySQLTodoListDelete(depend datastruct.TodolistBindMysqlDelete) error{
 
 		switch depend.DeleteMethod{
 		case cfg.DeleteWithId:
-			for index,_ :=range idSlice{
-				if _,err=db.Query(deleteCmd,idSlice[index]);err!=nil{
+			for index := range idSlice {			if _,err=db.Query(deleteCmd,idSlice[index]);err!=nil{
 					return err
 				}
 			}
@@ -219,7 +218,7 @@ func MySQLTodoListDelete(depend datastruct.TodolistBindMysqlDelete) error{
 				return err
 			}
 		case cfg.DeleteWithId|cfg.DeleteWithStatus:
-			for index,_:=range idSlice{
+			for index :=range idSlice{
 				if _,err=db.Query(deleteCmd,idSlice[index],depend.Status);err!=nil{
 					return err
 				}
@@ -238,7 +237,7 @@ func MySQLTodoListModify(depend datastruct.TodolistBindMysqlModify) error{
 	}else{
 		idSlice:=make([]int64,len(depend.Idlist))
 		copy(idSlice,depend.Idlist)
-		for index,_:=range idSlice{
+		for index :=range idSlice{
 			if _,err=db.Query("update todolist set status = ? where owner = ? and id = ?",depend.Status,depend.Username,idSlice[index]);err!=nil{
 				return err
 			}
