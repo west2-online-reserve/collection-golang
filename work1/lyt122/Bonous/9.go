@@ -27,17 +27,15 @@ func filter(in chan int, out chan int, prime int) {
 
 func main() {
 	ch := make(chan int)
-	//把所有整数传到ch里
 	go generate(ch)
-	//循环获取素数
+	//当数据传入ch时，会进入filter判断是否为素数，是的话就传入out里，再由out传入ch，之后打印出来,打印六次数据后，循环结束，主程序也结束了。
+	//一开始当ch里没有数据时，会把第一个传入的数据2打印出来
+	//这个循环进行时，其他两个函数也在同时进行，out不断给ch传入数据,使ch的第一个数据始终为素数。
 	for i := 0; i < 6; i++ {
-		//把ch里的数据给prime
 		prime := <-ch
 		fmt.Printf("prime:%d\n", prime)
 		out := make(chan int)
-		//把素数传到out里
 		go filter(ch, out, prime)
-		//把素数传到ch里
 		ch = out
 	}
 }
