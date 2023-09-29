@@ -27,12 +27,17 @@ func filter(in chan int, out chan int, prime int) {
 
 func main() {
 	ch := make(chan int)
+	//把所有整数传到ch里
 	go generate(ch)
+	//循环获取素数
 	for i := 0; i < 6; i++ {
+		//把ch里的数据给prime
 		prime := <-ch
 		fmt.Printf("prime:%d\n", prime)
 		out := make(chan int)
+		//把素数传到out里
 		go filter(ch, out, prime)
+		//把素数传到ch里
 		ch = out
 	}
 }
