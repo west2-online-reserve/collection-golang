@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "."
+		},
+		{
+			"path": "../server-redis"
 		}
 	],
 	"settings": {}

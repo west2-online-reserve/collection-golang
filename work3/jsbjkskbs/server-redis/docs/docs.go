@@ -65,6 +65,102 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/author/todolist/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[idlist],4[all]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "author"
+                ],
+                "summary": "删除备忘录api",
+                "parameters": [
+                    {
+                        "description": "是否完成,keyword不填,id数组,查找方法",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/datastruct.TodolistBindRedisCondition"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/author/todolist/modify": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "token前面要添加Bearer;method(允许叠加,使用或运算):2[idlist],4[all]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "author"
+                ],
+                "summary": "更新备忘录api",
+                "parameters": [
+                    {
+                        "description": "id数组,更新状态,查找方法",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/datastruct.TodolistBindRedisUpdate"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/author/todolist/search": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[keyword],4[all]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "author"
+                ],
+                "summary": "查找备忘录api",
+                "parameters": [
+                    {
+                        "description": "是否完成,关键字,idlist不填,查找方法",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/datastruct.TodolistBindRedisCondition"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/login": {
             "post": {
                 "produces": [
@@ -124,13 +220,55 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2077-01-01 01:01:01"
                 },
+                "text": {
+                    "type": "string",
+                    "example": "文本"
+                },
                 "title": {
                     "type": "string",
                     "example": "标题"
+                }
+            }
+        },
+        "datastruct.TodolistBindRedisCondition": {
+            "type": "object",
+            "properties": {
+                "idlist": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
-                "todo": {
+                "isdone": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "keyword": {
                     "type": "string",
-                    "example": "文本"
+                    "example": "我超OP"
+                },
+                "method": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "datastruct.TodolistBindRedisUpdate": {
+            "type": "object",
+            "properties": {
+                "idlist": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "isdone": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "method": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         }
@@ -146,7 +284,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "1.0-redis",
 	Host:             "127.0.0.1:8080",
 	BasePath:         "/",
 	Schemes:          []string{"http"},

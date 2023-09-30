@@ -9,7 +9,6 @@ import (
 	"server-redis/dataprocesser"
 	"server-redis/datastruct"
 	"server-redis/midware"
-	//"server-redis/myredis"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -62,7 +61,7 @@ func authorizeHandler() app.HandlerFunc {
 // @Router /author/ping [get]
 func authorPingHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
-		user,_:=c.Get(midware.IdentityKey)
+		user, _ := c.Get(midware.IdentityKey)
 		c.JSON(consts.StatusOK, datastruct.ShortResponse{
 			Status:  consts.StatusOK,
 			Message: fmt.Sprintf("token passed. Username: %s", user.(*datastruct.User).Username),
@@ -98,7 +97,6 @@ func authorTodolistAddHandler() app.HandlerFunc {
 			what2do.Owner = user.(*datastruct.User).Username
 			what2do.Status = false
 
-			
 			if id, err := dataprocesser.InsertReceiveTodolist(what2do); err != nil {
 				log.Print("[Error] User[", user.(*datastruct.User).Username, "] operation:", err)
 				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
@@ -122,7 +120,8 @@ func authorTodolistAddHandler() app.HandlerFunc {
 								Status:   false,
 							},
 						},
-						TotalItems: 1,
+						Count: 1,
+						Total: int(id),
 					},
 					Message: "ok",
 					Error:   "",
@@ -138,12 +137,11 @@ func authorTodolistAddHandler() app.HandlerFunc {
 	}
 }
 
-/*
 // @Summary 查找备忘录api
 // @Description token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[keyword],4[all]
 // @Tags author
 // @Security ApiKeyAuth
-// @Param data body datastruct.TodolistBindMysqlSearch true "是否完成,关键字,查找方法"
+// @Param data body datastruct.TodolistBindRedisCondition true "是否完成,关键字,idlist不填,查找方法"
 // @Accept application/json
 // @Produce application/json
 // @Router /author/todolist/search [post]
@@ -161,10 +159,9 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 			return
 		}
 		if isExist {
-			var searchCondition datastruct.TodolistBindMysqlSearch
+			var searchCondition datastruct.TodolistBindRedisCondition
 			json.Unmarshal(body, &searchCondition)
-			searchCondition.Username = user.(*datastruct.User).UserName
-			list, err := mysql.MySQLTodoListSearch(searchCondition)
+			data, err := dataprocesser.SearchUserTodoList(user.(*datastruct.User).Username, searchCondition)
 
 			if err != nil {
 				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
@@ -175,11 +172,8 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 				return
 			}
 			c.JSON(consts.StatusOK, datastruct.SendingJSONFormat{
-				Status: consts.StatusOK,
-				Data: datastruct.SendingJSONData{
-					Items:      list,
-					TotalItems: len(list),
-				},
+				Status:  consts.StatusOK,
+				Data:    data,
 				Message: "ok",
 				Error:   "",
 			})
@@ -199,7 +193,7 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 // @Description token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[idlist],4[all]
 // @Tags author
 // @Security ApiKeyAuth
-// @Param data body datastruct.TodolistBindMysqlDelete true "是否完成,id数组,查找方法"
+// @Param data body datastruct.TodolistBindRedisCondition true "是否完成,keyword不填,id数组,查找方法"
 // @Accept application/json
 // @Produce application/json
 // @Router /author/todolist/delete [delete]
@@ -216,22 +210,22 @@ func authorTodolistDeleteHandler() app.HandlerFunc {
 			return
 		}
 		if isExist {
-			var deleteCondition datastruct.TodolistBindMysqlDelete
+			var deleteCondition datastruct.TodolistBindRedisCondition
 			json.Unmarshal(body, &deleteCondition)
-			deleteCondition.Username = user.(*datastruct.User).UserName
-			if err := mysql.MySQLTodoListDelete(deleteCondition); err != nil {
+			if cnt, err := dataprocesser.DeleteUserTodoList(user.(*datastruct.User).Username, deleteCondition); err != nil {
 				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
 					Message: "",
 					Error:   err.Error(),
 				})
 				return
+			} else {
+				c.JSON(consts.StatusOK, datastruct.ShortResponse{
+					Status:  consts.StatusOK,
+					Message: fmt.Sprintf("ok,remove %d text(s)", cnt),
+					Error:   "",
+				})
 			}
-			c.JSON(consts.StatusOK, datastruct.ShortResponse{
-				Status:  consts.StatusOK,
-				Message: "ok",
-				Error:   "",
-			})
 		} else {
 			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
@@ -244,10 +238,10 @@ func authorTodolistDeleteHandler() app.HandlerFunc {
 }
 
 // @Summary 更新备忘录api
-// @Description token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[idlist],4[all]
+// @Description token前面要添加Bearer;method(允许叠加,使用或运算):2[idlist],4[all]
 // @Tags author
 // @Security ApiKeyAuth
-// @Param data body datastruct.TodolistBindMysqlModify true "是否完成,id数组,查找方法"
+// @Param data body datastruct.TodolistBindRedisUpdate true "id数组,更新状态,查找方法"
 // @Accept application/json
 // @Produce application/json
 // @Router /author/todolist/modify [put]
@@ -264,24 +258,23 @@ func authorTodolistModifyHandler() app.HandlerFunc {
 			return
 		}
 		if isExist {
-			var modifyCondition datastruct.TodolistBindMysqlModify
+			var modifyCondition datastruct.TodolistBindRedisUpdate
 			json.Unmarshal(body, &modifyCondition)
-			modifyCondition.Username = user.(*datastruct.User).UserName
 
-			if err := mysql.MySQLTodoListModify(modifyCondition); err != nil {
+			if cnt, err := dataprocesser.UpdateTodoList(user.(*datastruct.User).Username, modifyCondition); err != nil {
 				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
 					Message: "",
 					Error:   err.Error(),
 				})
 				return
+			} else {
+				c.JSON(consts.StatusOK, datastruct.ShortResponse{
+					Status:  consts.StatusOK,
+					Message: fmt.Sprintf("ok,update %d text(s)", cnt),
+					Error:   "",
+				})
 			}
-			c.JSON(consts.StatusOK, datastruct.ShortResponse{
-				Status:  consts.StatusOK,
-				Message: "ok",
-				Error:   "",
-			})
 		}
 	}
 }
-*/

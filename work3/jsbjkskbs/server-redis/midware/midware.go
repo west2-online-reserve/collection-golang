@@ -98,9 +98,12 @@ func JWTInit() {
 
 		//使用JWT token时不可去掉
 		PayloadFunc: func(data interface{}) jwt.MapClaims {
-			if user,ok := data.(datastruct.User); ok {
+			if username := data.(struct {
+				Username string "form:\"username\" json:\"username\" vd:\"(len($)>0&&len($)<64); msg:'Illegal Username'\""
+				Password string "form:\"password\" json:\"password\" vd:\"(len($)>5&&len($)<16); msg:'Illegal Password'\""
+			}).Username; len(username) != 0 {
 				return jwt.MapClaims{
-					IdentityKey: user.Username,
+					IdentityKey: username,
 				}
 			}
 			return jwt.MapClaims{}

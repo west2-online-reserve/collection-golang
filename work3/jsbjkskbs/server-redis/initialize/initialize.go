@@ -39,9 +39,9 @@ func ServerInit(s *server.Hertz) {
 
 	authorGroup.POST("/todolist/add", authorTodolistAddHandler())
 
-	/*authorGroup.POST("/todolist/search", authorTodolistSearchHandler())
+	authorGroup.POST("/todolist/search", authorTodolistSearchHandler())
 
 	authorGroup.DELETE("/todolist/delete", authorTodolistDeleteHandler())
 
-	authorGroup.PUT("/todolist/modify", authorTodolistModifyHandler())*/
+	authorGroup.PUT("/todolist/modify", authorTodolistModifyHandler())
 }

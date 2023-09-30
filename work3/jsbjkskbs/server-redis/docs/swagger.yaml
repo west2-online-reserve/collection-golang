@@ -5,18 +5,47 @@ definitions:
       deadline:
         example: "2077-01-01 01:01:01"
         type: string
+      text:
+        example: 文本
+        type: string
       title:
         example: 标题
         type: string
-      todo:
-        example: 文本
+    type: object
+  datastruct.TodolistBindRedisCondition:
+    properties:
+      idlist:
+        items:
+          type: integer
+        type: array
+      isdone:
+        example: false
+        type: boolean
+      keyword:
+        example: 我超OP
         type: string
+      method:
+        example: 1
+        type: integer
+    type: object
+  datastruct.TodolistBindRedisUpdate:
+    properties:
+      idlist:
+        items:
+          type: integer
+        type: array
+      isdone:
+        example: false
+        type: boolean
+      method:
+        example: 1
+        type: integer
     type: object
 host: 127.0.0.1:8080
 info:
   contact: {}
   title: test
-  version: "1.0"
+  version: 1.0-redis
 paths:
   /author/ping:
     get:
@@ -47,6 +76,66 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 添加备忘录api
+      tags:
+      - author
+  /author/todolist/delete:
+    delete:
+      consumes:
+      - application/json
+      description: token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[idlist],4[all]
+      parameters:
+      - description: 是否完成,keyword不填,id数组,查找方法
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/datastruct.TodolistBindRedisCondition'
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - ApiKeyAuth: []
+      summary: 删除备忘录api
+      tags:
+      - author
+  /author/todolist/modify:
+    put:
+      consumes:
+      - application/json
+      description: token前面要添加Bearer;method(允许叠加,使用或运算):2[idlist],4[all]
+      parameters:
+      - description: id数组,更新状态,查找方法
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/datastruct.TodolistBindRedisUpdate'
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - ApiKeyAuth: []
+      summary: 更新备忘录api
+      tags:
+      - author
+  /author/todolist/search:
+    post:
+      consumes:
+      - application/json
+      description: token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[keyword],4[all]
+      parameters:
+      - description: 是否完成,关键字,idlist不填,查找方法
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/datastruct.TodolistBindRedisCondition'
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - ApiKeyAuth: []
+      summary: 查找备忘录api
       tags:
       - author
   /login:
