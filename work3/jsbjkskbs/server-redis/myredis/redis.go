@@ -1,6 +1,7 @@
 package myredis
 
 import (
+	"errors"
 
 	"github.com/go-redis/redis"
 )
@@ -25,11 +26,12 @@ func RedisInit() error {
 	return nil
 }
 
-func RedisInsert(key string, data interface{}) error {
-	if _, err := redisDB.LPush(key, Struct2Json(data)).Result(); err != nil {
-		return err
+func RedisInsert(key string, data interface{}) (int64,error) {
+	if count, err := redisDB.RPush(key, Struct2Json(data)).Result(); err != nil {
+		return -1,err
+	}else{
+		return count-1,err
 	}
-	return nil
 }
 
 func RedisRemove(key string, index int64) error {
@@ -144,4 +146,32 @@ func RedisPopAll(key string) ([]interface{},error){
 		return nil,err
 	}
 	return dataSlice,err
+}
+
+func RedisFindAccount(key string) (bool, error) {
+	if _, err := accountDB.Get(key).Result(); err != nil {
+		return false, errors.New("account doesn't exist")
+	}
+	return true, errors.New("account has already existed")
+}
+
+func RedisCheckAccount(username ,password string) (bool,error){
+	pwd,err:=accountDB.Get(username).Result()
+	if err!=nil{
+		return false,err
+	}
+	if pwd!=password{
+		return false,errors.New("inavailable account or password")
+	}
+	return true,nil
+}
+
+func RedisCreateAccount(username, password string) (error){
+	if find,_:=RedisFindAccount(username);find{
+		return errors.New("this account exists")
+	}
+	if _,err:=accountDB.Set(username,password,0).Result();err!=nil{
+		return err
+	}
+	return nil
 }

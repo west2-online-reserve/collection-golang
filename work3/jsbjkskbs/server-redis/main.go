@@ -1,0 +1,28 @@
+package main
+
+import (
+	"server-redis/initialize"
+	"server-redis/cfg"
+	_ "server-redis/docs"
+	"github.com/cloudwego/hertz/pkg/app/server"
+)
+
+// @title test
+// @version 1.0
+// description test
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
+
+// @host 127.0.0.1:8080
+// @schemes http
+// @BasePath /
+func main() {
+	initialize.RedisInit()
+	initialize.MidWareInit()
+	s := server.Default(server.WithHostPorts(cfg.ServerHost))
+	initialize.ServerInit(s)
+	s.Spin()
+}
+
