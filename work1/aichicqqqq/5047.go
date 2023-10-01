@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-func runnian(i int) bool {
+func year(i int) bool {
 	var ret = false
 	if i%4 == 0 && i%100 != 0 || i%400 == 0 {
 		ret = true
@@ -15,7 +15,7 @@ func main() {
 	var slice []int
 	fmt.Scanf("%d %d", &x, &y)
 	for i = x; i <= y; i++ {
-		if runnian(i) {
+		if year(i) {
 			cnt++
 			slice = append(slice, i)
 		}
