@@ -1,145 +1,3 @@
-##### 两数求和
-
-```go
-package main
-
-import "fmt"
-
-func main(){
-
-  var a,b int
-
-  fmt.Scanf("%d %d",&a,&b)
-
-  fmt.Println((a+b))
-
-}
-```
-
-##### 高度比较
-
-```go
-package main
-
-import "fmt"
-
-func main(){
-    
-        var heights[10] int
-        var maxReach int
-        var counts int
-    
-        for i:=0;i<=9;i++{
-            fmt.Scan(&heights[i])
-        }
-    
-        fmt.Scan(&maxReach)
-        maxReach+=30;
-        
-        for _,i:=range heights{
-            if maxReach>=i{
-                counts++
-            }
-            
-        }
-        fmt.Println(counts)
-        
-    }
-```
-
-##### 闰年判断
-
-```go
-package main
-
-import "fmt"
-
-func main() {
-    
-    var left,right int
-    var years []int
-    
-    fmt.Scan(&left,&right)
-    
-    for i:=left;i<=right;i++{
-        if (i%4==0&&i%100!=0)||(i%400)==0{
-            years=append(years,i)
-        }
-    }
-  
-  fmt.Println(len(years))
-    
-  for _,i:=range years{
-    fmt.Print(i)
-    fmt.Print(" ")
-}
-
-}
-```
-
-##### 素数判断
-
-```go
-package main
-
-import "fmt"
-import "math"
-
-func isPrime(x int64) bool {
-    
-    for i := int64(2); i <= int64(math.Sqrt(float64(x))); i++ {
-		if x%i == 0 {
-			return false
-		}
-	}
-	return true
-    
-}
-func main(){
-    
-    var n int64
-    fmt.Scan(&n)
-    if isPrime(n) {
-        fmt.Println("YES")
-    } else {
-        fmt.Println("NO")
-    }
-}
-```
-
-##### 臭臭的切片
-
-```go
-package main
-
-import "fmt"
-
-func main() {
-
-	slice := make([]int, 0, 50)
-	//make(type,size,capacity)
-	for i := 1; i <= 50; i++ {
-		slice = append(slice, i)
-	}
-
-	
-	for i := 0; i < len(slice); i++ {
-		if slice[i]%3 == 0 {
-			slice = append(slice[:i], slice[i+1:]...)
-            //通过...展开切片
-			i-- 
-		}
-	}
-
-	
-	slice = append(slice, 114514)
-
-	
-	fmt.Println(slice)
-}
-
-```
-
 ##### Bonus
 
 1. ###### 打印乘法表
@@ -441,7 +299,11 @@ func main() {
    
    func main() {
    	ch := make(chan int)
+       
+       //新建协程调用generate产生数字
    	go generate(ch)
+       
+       //for循环执行次数即为输出的素数个数
    	for i := 0; i < 100; i++ {
    		prime := <-ch
    		fmt.Printf("prime:%d\n", prime)
