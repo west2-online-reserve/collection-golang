@@ -8,7 +8,7 @@ import (
 )
 
 // @title test
-// @version 1.0-redis
+// @version 1.1-redis
 // description test
 
 // @securityDefinitions.apikey ApiKeyAuth

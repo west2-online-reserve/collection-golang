@@ -41,144 +41,176 @@ func GetUserTodolist(username string) (datastruct.TodolistBindJSONSendArray, err
 		for i := range items {
 			data, _ := json.Marshal(items[i])
 			json.Unmarshal(data, &result.Todolist.List[i])
-			result.Todolist.List[i].Id = int64(i) +1
+			result.Todolist.List[i].Id = int64(i) + 1
 		}
 		return result, nil
 	}
 }
 
-func SearchUserTodoList(username string,condition datastruct.TodolistBindRedisCondition) (datastruct.SendingJSONData, error) {
+func SearchUserTodoList(username string, condition datastruct.TodolistBindRedisCondition, searchPage int) (datastruct.SendingJSONData, bool, error) {
+	if searchPage <= 0 {
+		return datastruct.SendingJSONData{}, false, errors.New("search page cannot be lower than zero")
+	}
+	var end int
 	totalData, err := GetUserTodolist(username)
 	if err != nil {
-		return datastruct.SendingJSONData{}, err
+		return datastruct.SendingJSONData{}, false, err
 	}
 	result := make([]datastruct.TodolistBindJSONSend, 0)
 	switch condition.Method {
 	case cfg.SearchAll:
+		if (searchPage-1)*cfg.ItemsCountInPage > len(totalData.Todolist.List) {
+			return datastruct.SendingJSONData{}, true, nil
+		} else if searchPage*cfg.ItemsCountInPage > len(totalData.Todolist.List) {
+			end = len(totalData.Todolist.List)
+		} else {
+			end = searchPage * cfg.ItemsCountInPage
+		}
 		return datastruct.SendingJSONData{
-			Items: totalData.Todolist.List,
-			Count: len(totalData.Todolist.List),
+			Items: totalData.Todolist.List[(searchPage-1)*cfg.ItemsCountInPage : end],
+			Count: end - (searchPage-1)*cfg.ItemsCountInPage,
 			Total: len(totalData.Todolist.List),
-		}, nil
+		}, searchPage*cfg.ItemsCountInPage >= len(totalData.Todolist.List), nil
 	case cfg.SearchWithStatus:
 		for i := range totalData.Todolist.List {
 			if totalData.Todolist.List[i].Status == condition.Status {
 				result = append(result, totalData.Todolist.List[i])
 			}
 		}
+		if (searchPage-1)*cfg.ItemsCountInPage > len(result) {
+			return datastruct.SendingJSONData{}, true, nil
+		} else if searchPage*cfg.ItemsCountInPage > len(result) {
+			end = len(result)
+		} else {
+			end = searchPage * cfg.ItemsCountInPage
+		}
 		return datastruct.SendingJSONData{
-			Items: result,
-			Count: len(result),
-			Total: len(totalData.Todolist.List),
-		}, nil
+			Items: result[(searchPage-1)*cfg.ItemsCountInPage : end],
+			Count: end - (searchPage-1)*cfg.ItemsCountInPage,
+			Total: len(result),
+		}, searchPage*cfg.ItemsCountInPage >= len(result), nil
 	case cfg.SearchWithKeyWord:
 		for i := range totalData.Todolist.List {
 			if strings.Contains(totalData.Todolist.List[i].Title, condition.Keyword) || strings.Contains(totalData.Todolist.List[i].Text, condition.Keyword) {
 				result = append(result, totalData.Todolist.List[i])
 			}
 		}
+		if (searchPage-1)*cfg.ItemsCountInPage > len(result) {
+			return datastruct.SendingJSONData{}, true, nil
+		} else if searchPage*cfg.ItemsCountInPage > len(result) {
+			end = len(result)
+		} else {
+			end = searchPage * cfg.ItemsCountInPage
+		}
 		return datastruct.SendingJSONData{
-			Items: result,
-			Count: len(result),
-			Total: len(totalData.Todolist.List),
-		}, nil
+			Items: result[(searchPage-1)*cfg.ItemsCountInPage : end],
+			Count: end - (searchPage-1)*cfg.ItemsCountInPage,
+			Total: len(result),
+		}, searchPage*cfg.ItemsCountInPage >= len(result), nil
 	case cfg.SearchWithKeyWord | cfg.SearchWithStatus:
 		for i := range totalData.Todolist.List {
 			if totalData.Todolist.List[i].Status == condition.Status && (strings.Contains(totalData.Todolist.List[i].Title, condition.Keyword) || strings.Contains(totalData.Todolist.List[i].Text, condition.Keyword)) {
 				result = append(result, totalData.Todolist.List[i])
 			}
 		}
+		if (searchPage-1)*cfg.ItemsCountInPage > len(result) {
+			return datastruct.SendingJSONData{}, true, nil
+		} else if searchPage*cfg.ItemsCountInPage > len(result) {
+			end = len(result)
+		} else {
+			end = searchPage * cfg.ItemsCountInPage
+		}
 		return datastruct.SendingJSONData{
-			Items: result,
-			Count: len(result),
-			Total: len(totalData.Todolist.List),
-		}, nil
+			Items: result[(searchPage-1)*cfg.ItemsCountInPage : end],
+			Count: end - (searchPage-1)*cfg.ItemsCountInPage,
+			Total: len(result),
+		}, searchPage*cfg.ItemsCountInPage >= len(result), nil
 	}
-	return datastruct.SendingJSONData{}, errors.New("wrong method")
+	return datastruct.SendingJSONData{}, false, errors.New("wrong method")
 }
 
-func DeleteUserTodoList(username string,condition datastruct.TodolistBindRedisCondition) (int,error){
+func DeleteUserTodoList(username string, condition datastruct.TodolistBindRedisCondition) (int, error) {
 	totalData, err := GetUserTodolist(username)
 	if err != nil {
 		return 0, err
 	}
-	if len(totalData.Todolist.List)==0{
-		return 0 ,errors.New("no data exist")
+	if len(totalData.Todolist.List) == 0 {
+		return 0, errors.New("no data exist")
 	}
-	index:=make([]int64,0)
+	index := make([]int64, 0)
 	switch condition.Method {
 	case cfg.DeleteAll:
-		if err:=myredis.RedisRemoveAll(username);err!=nil{
-			return 0,err
+		if err := myredis.RedisRemoveAll(username); err != nil {
+			return 0, err
 		}
 		return len(totalData.Todolist.List), nil
 	case cfg.DeleteWithStatus:
 		for i := range totalData.Todolist.List {
 			if totalData.Todolist.List[i].Status == condition.Status {
-				index=append(index, int64(i)-1)
+				index = append(index, int64(i)-1)
 			}
 		}
-		if err:=myredis.RedisMultRemove(username,index);err!=nil{
-			return 0,err
+		if err := myredis.RedisMultRemove(username, index); err != nil {
+			return 0, err
 		}
 		return len(index), nil
 	case cfg.DeleteWithId:
-		for i:=range condition.Idlist{
+		for i := range condition.Idlist {
 			condition.Idlist[i]--
 		}
-		if err:=myredis.RedisMultRemove(username,condition.Idlist);err!=nil{
-			return 0,err
+		if err := myredis.RedisMultRemove(username, condition.Idlist); err != nil {
+			return 0, err
 		}
 		return len(condition.Idlist), nil
-	case cfg.DeleteWithId| cfg.DeleteWithStatus:
+	case cfg.DeleteWithId | cfg.DeleteWithStatus:
 		for i := range condition.Idlist {
 			if totalData.Todolist.List[i].Status == condition.Status {
-				index=append(index, int64(i)-1)
+				index = append(index, int64(i)-1)
 			}
 		}
-		if err:=myredis.RedisMultRemove(username,index);err!=nil{
-			return 0,err
+		if err := myredis.RedisMultRemove(username, index); err != nil {
+			return 0, err
 		}
 		return len(index), nil
 	}
 	return 0, errors.New("wrong method")
 }
 
-func UpdateTodoList(username string,msg datastruct.TodolistBindRedisUpdate) (int,error){
+func UpdateTodoList(username string, msg datastruct.TodolistBindRedisUpdate) (int, error) {
 	totalData, err := GetUserTodolist(username)
 	if err != nil {
 		return 0, err
 	}
-	if len(totalData.Todolist.List)==0{
-		return 0 ,errors.New("no data exist")
+	if len(totalData.Todolist.List) == 0 {
+		return 0, errors.New("no data exist")
 	}
 	switch msg.Method {
 	case cfg.ModifyAll:
-		if items,err:=myredis.RedisPopAll(username);err!=nil{
-			return 0,err
-		}else{
-			for i:=range items{
-				items[i].(map[string]interface{})["isdone"]=msg.NewStatus	
-				myredis.RedisInsert(username,items[i])
+		if items, err := myredis.RedisPopAll(username); err != nil {
+			return 0, err
+		} else {
+			for i := range items {
+				items[i].(map[string]interface{})["isdone"] = msg.NewStatus
+				myredis.RedisInsert(username, items[i])
 			}
-			return len(items),nil
+			return len(items), nil
 		}
 	case cfg.ModifyWithId:
-		if len(msg.Idlist)==0{
-			return 0,errors.New("idlist empty")
+		if len(msg.Idlist) == 0 {
+			return 0, errors.New("idlist empty")
 		}
-		for i:=range msg.Idlist{
+		for i := range msg.Idlist {
 			msg.Idlist[i]--
 		}
-		if items,err:=myredis.RedisMultPop(username,msg.Idlist);err!=nil{
-			return 0,err
-		}else{
-			if len(items)==0{
-				return 0,errors.New("no data exists")
+		if items, err := myredis.RedisMultPop(username, msg.Idlist); err != nil {
+			return 0, err
+		} else {
+			if len(items) == 0 {
+				return 0, errors.New("no data exists")
 			}
-			for i:=range items{
-				items[i].(map[string]interface{})["isdone"]=msg.NewStatus	
-				myredis.RedisInsert(username,items[i])
+			for i := range items {
+				items[i].(map[string]interface{})["isdone"] = msg.NewStatus
+				myredis.RedisInsert(username, items[i])
 			}
 			return len(items), nil
 		}

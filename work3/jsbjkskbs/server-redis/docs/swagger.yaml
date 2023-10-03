@@ -45,7 +45,7 @@ host: 127.0.0.1:8080
 info:
   contact: {}
   title: test
-  version: 1.0-redis
+  version: 1.1-redis
 paths:
   /author/ping:
     get:
@@ -124,6 +124,10 @@ paths:
       - application/json
       description: token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[keyword],4[all]
       parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
       - description: 是否完成,关键字,idlist不填,查找方法
         in: body
         name: data

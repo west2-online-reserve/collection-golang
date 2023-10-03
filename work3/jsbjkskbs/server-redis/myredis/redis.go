@@ -16,21 +16,24 @@ func RedisInit() error {
 		DB:       0,
 	})
 	accountDB = redis.NewClient(&redis.Options{
-		Addr: `127.0.0.1:6379`,
+		Addr:     `127.0.0.1:6379`,
 		Password: "",
-		DB: 1,
+		DB:       1,
 	})
 	if _, err := redisDB.Ping().Result(); err != nil {
-		return err
+		panic(err)
+	}
+	if _, err := accountDB.Ping().Result(); err != nil {
+		panic(err)
 	}
 	return nil
 }
 
-func RedisInsert(key string, data interface{}) (int64,error) {
+func RedisInsert(key string, data interface{}) (int64, error) {
 	if count, err := redisDB.RPush(key, Struct2Json(data)).Result(); err != nil {
-		return -1,err
-	}else{
-		return count-1,err
+		return -1, err
+	} else {
+		return count - 1, err
 	}
 }
 
@@ -109,43 +112,43 @@ func RedisGetAll(key string) ([]interface{}, error) {
 	return dataSlice, nil
 }
 
-func RedisPop(key string,index int64) (interface{},error){
-	pip:=redisDB.TxPipeline()
-	item,err:=pip.LRange(key,index,index).Result()
-	if err!=nil{
-		return nil,err
+func RedisPop(key string, index int64) (interface{}, error) {
+	pip := redisDB.TxPipeline()
+	item, err := pip.LRange(key, index, index).Result()
+	if err != nil {
+		return nil, err
 	}
-	if _,err=pip.LRem(key,index,index).Result();err!=nil{
-		return nil,err
+	if _, err = pip.LRem(key, index, index).Result(); err != nil {
+		return nil, err
 	}
 	var data interface{}
-	Json2Struct([]byte(item[0]),&data)
-	return data,nil
+	Json2Struct([]byte(item[0]), &data)
+	return data, nil
 }
 
-func RedisMultPop(key string,index []int64) ([]interface{},error){
-	dataSlice:=make([]interface{},len(index))
+func RedisMultPop(key string, index []int64) ([]interface{}, error) {
+	dataSlice := make([]interface{}, len(index))
 	var err error
-	for i:=range index{
-		if dataSlice[i],err=RedisGet(key,index[i]);err!=nil{
-			return nil,err
+	for i := range index {
+		if dataSlice[i], err = RedisGet(key, index[i]); err != nil {
+			return nil, err
 		}
 	}
-	if err=RedisMultRemove(key,index);err!=nil{
-		return nil,err
+	if err = RedisMultRemove(key, index); err != nil {
+		return nil, err
 	}
-	return dataSlice,nil
+	return dataSlice, nil
 }
 
-func RedisPopAll(key string) ([]interface{},error){
-	dataSlice,err:=RedisGetAll(key)
-	if err!=nil{
-		return nil,err
+func RedisPopAll(key string) ([]interface{}, error) {
+	dataSlice, err := RedisGetAll(key)
+	if err != nil {
+		return nil, err
 	}
-	if _,err=redisDB.Del(key).Result();err!=nil{
-		return nil,err
+	if _, err = redisDB.Del(key).Result(); err != nil {
+		return nil, err
 	}
-	return dataSlice,err
+	return dataSlice, err
 }
 
 func RedisFindAccount(key string) (bool, error) {
@@ -155,22 +158,22 @@ func RedisFindAccount(key string) (bool, error) {
 	return true, errors.New("account has already existed")
 }
 
-func RedisCheckAccount(username ,password string) (bool,error){
-	pwd,err:=accountDB.Get(username).Result()
-	if err!=nil{
-		return false,err
+func RedisCheckAccount(username, password string) (bool, error) {
+	pwd, err := accountDB.Get(username).Result()
+	if err != nil {
+		return false, err
 	}
-	if pwd!=password{
-		return false,errors.New("inavailable account or password")
+	if pwd != password {
+		return false, errors.New("inavailable account or password")
 	}
-	return true,nil
+	return true, nil
 }
 
-func RedisCreateAccount(username, password string) (error){
-	if find,_:=RedisFindAccount(username);find{
+func RedisCreateAccount(username, password string) error {
+	if find, _ := RedisFindAccount(username); find {
 		return errors.New("this account exists")
 	}
-	if _,err:=accountDB.Set(username,password,0).Result();err!=nil{
+	if _, err := accountDB.Set(username, password, 0).Result(); err != nil {
 		return err
 	}
 	return nil

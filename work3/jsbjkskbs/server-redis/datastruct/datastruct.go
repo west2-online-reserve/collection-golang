@@ -14,15 +14,18 @@ type ShortResponse struct {
 }
 
 type SendingJSONFormat struct {
-	Status  int             `json:"status"`
-	Data    SendingJSONData `json:"data"`
-	Message string          `json:"message"`
-	Error   string          `json:"error"`
+	Status       int             `json:"status"`
+	Page         int             `json:"page"`
+	ItemsPerPage int             `json:"itemsPerPage"`
+	Isend        bool            `json:"isend"`
+	Data         SendingJSONData `json:"data"`
+	Message      string          `json:"message"`
+	Error        string          `json:"error"`
 }
 
 type SendingJSONData struct {
 	Items []TodolistBindJSONSend `json:"items"`
-	Count int                    `json:"items_count"`
+	Count int                    `json:"count"`
 	Total int                    `json:"total"`
 }
 

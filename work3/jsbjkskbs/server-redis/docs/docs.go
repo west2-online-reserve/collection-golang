@@ -149,6 +149,12 @@ const docTemplate = `{
                 "summary": "查找备忘录api",
                 "parameters": [
                     {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
                         "description": "是否完成,关键字,idlist不填,查找方法",
                         "name": "data",
                         "in": "body",
@@ -284,7 +290,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0-redis",
+	Version:          "1.1-redis",
 	Host:             "127.0.0.1:8080",
 	BasePath:         "/",
 	Schemes:          []string{"http"},

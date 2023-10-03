@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"server-redis/account"
+	"server-redis/cfg"
 	"server-redis/dataprocesser"
 	"server-redis/datastruct"
 	"server-redis/midware"
+	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -141,6 +143,7 @@ func authorTodolistAddHandler() app.HandlerFunc {
 // @Description token前面要添加Bearer;method(允许叠加,使用或运算):1[isdone],2[keyword],4[all]
 // @Tags author
 // @Security ApiKeyAuth
+// @Param page query int false "页码"
 // @Param data body datastruct.TodolistBindRedisCondition true "是否完成,关键字,idlist不填,查找方法"
 // @Accept application/json
 // @Produce application/json
@@ -149,7 +152,11 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		user, isExist := c.Get(midware.IdentityKey)
 		body, err := c.Body()
-
+		page, _ := c.GetQuery("page")
+		pageNumber, _ := strconv.ParseInt(page, 10, 64)
+		if pageNumber == 0 {
+			pageNumber = 1
+		}
 		if err != nil {
 			c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 				Status:  consts.StatusBadRequest,
@@ -161,7 +168,7 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 		if isExist {
 			var searchCondition datastruct.TodolistBindRedisCondition
 			json.Unmarshal(body, &searchCondition)
-			data, err := dataprocesser.SearchUserTodoList(user.(*datastruct.User).Username, searchCondition)
+			data, isend, err := dataprocesser.SearchUserTodoList(user.(*datastruct.User).Username, searchCondition, int(pageNumber))
 
 			if err != nil {
 				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
@@ -172,10 +179,13 @@ func authorTodolistSearchHandler() app.HandlerFunc {
 				return
 			}
 			c.JSON(consts.StatusOK, datastruct.SendingJSONFormat{
-				Status:  consts.StatusOK,
-				Data:    data,
-				Message: "ok",
-				Error:   "",
+				Status:       consts.StatusOK,
+				Page:         int(pageNumber),
+				ItemsPerPage: cfg.ItemsCountInPage,
+				Isend:        isend,
+				Data:         data,
+				Message:      "ok",
+				Error:        "",
 			})
 
 		} else {
