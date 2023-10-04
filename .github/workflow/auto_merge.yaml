@@ -1,0 +1,29 @@
+name: Auto Merge
+
+on:
+  pull_request_review:
+    types:
+      - submitted
+
+jobs:
+  auto_merge:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Auto Merge PR
+        run: |
+          PR_URL=$(jq -r ".pull_request.url" "$GITHUB_EVENT_PATH")
+          PR_NUMBER=$(jq -r ".pull_request.number" "$GITHUB_EVENT_PATH")
+          
+          APPROVALS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$PR_URL/reviews" | jq '.[] | select(.state == "APPROVED") | .user.login' | sort -u | wc -l)
+          
+          if [ "$APPROVALS" -ge 2 ]; then
+            curl -s -X PUT -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -d '{"merge_method": "merge"}' "$PR_URL/merge"
+          fi
