@@ -2,14 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gocolly/colly"
 	"os"
 	"strconv"
 	"sync"
 )
-
-var count int
 
 var dist *os.File
 
@@ -19,7 +16,7 @@ var wg sync.WaitGroup
 var channel = make(chan int, 5)
 
 // 爬取主评论的并发限制数
-var MainChannel = make(chan int, 40)
+var MainChannel = make(chan int, 30)
 
 type JSONData struct {
 	Data struct {
@@ -79,8 +76,6 @@ func queryMainText(url string) {
 	_ = c.Visit(url)
 	for _, reply := range data.Data.Replies {
 		//fmt.Println(reply.Content.Message)
-		count++
-		fmt.Println(count)
 		_, _ = dist.WriteString(reply.Content.Message + "\n")
 		wg.Add(1)
 		channel <- 1
@@ -107,8 +102,6 @@ func querySubText(rpid int) {
 		_ = c.Visit(url)
 		for _, reply := range data.Data.Replies {
 			//fmt.Println(reply.Content.Message)
-			count++
-			fmt.Println(count)
 			_, _ = dist.WriteString(reply.Content.Message + "\n")
 		}
 	}
