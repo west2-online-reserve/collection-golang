@@ -2,8 +2,8 @@ package model
 
 import (
 	"fmt"
-	"fzu_crawl/conf"
-	"fzu_crawl/data/model"
+	"fzucrawl/conf"
+	"fzucrawl/data/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"time"

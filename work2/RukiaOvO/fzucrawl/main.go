@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	model "fzu_crawl/data"
-	model2 "fzu_crawl/data/model"
+	model "fzucrawl/data"
+	model2 "fzucrawl/data/model"
 	"github.com/PuerkitoBio/goquery"
 	"gorm.io/gorm"
 	"io"
