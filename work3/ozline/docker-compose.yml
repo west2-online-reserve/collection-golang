@@ -1,0 +1,17 @@
+version: '3.7'
+
+services:
+    mysql:
+        container_name: mysql
+        image: mysql:latest
+        restart: always
+        environment:
+            - MYSQL_ROOT_PASSWORD=root
+            - MYSQL_DATABASE=west2online
+            - MYSQL_USER=west2online
+            - MYSQL_PASSWORD=west2online
+            - TZ=Asia/Shanghai
+        volumes:
+            - ./config/sql:/docker-entrypoint-initdb.d/
+        ports:
+            - "3306:3306"
