@@ -1,0 +1,48 @@
+system:
+  domain: VideoWebsite
+  httpPort: "localhost:8080"
+  LocalMode: "local"  #可以切换到oss
+
+redis:
+  redisHost: "127.0.0.1"
+  redisPort: "6379"
+  redisDbName: 0
+  redisNetWork: "tcp"
+  redisPassword: "123456"
+
+mysql:
+  default:
+    dialect: "mysql"
+    dbHost: "127.0.0.1"
+    dbPort: "3306"
+    dbName: "videowebsite"
+    userName: "root"
+    password: "123456"
+    charset: "utf8mb4"
+
+local:
+  AvatarPath: "./static/imgs/avatar/"
+  DefaultAvatarPath: "/static/imgs/default.jpg"
+  DefaultVideoPath: "./static/videos/"
+
+email:
+  qqmail:
+    sender: "example@qq.com"
+    host: "smtp.qq.com"
+    password: "examplepassword"
+    address: "smtp.qq.com:25"
+
+es:
+  userName: "elastic"
+  password: "123456"
+  address: "https://127.0.0.1:9200"
+
+
+qiniu:
+  AccessKey: ""
+  SecretKey: ""
+  AvatarPath: "static/avatars/"
+  VideoPath: "static/videos/"
+  DefaultAvatarPath: "stastic/avatars/default.jpg"
+  Bucket: ""
+  Domain: ""
