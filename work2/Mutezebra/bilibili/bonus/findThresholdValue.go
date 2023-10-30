@@ -57,4 +57,4 @@ func setRequestHeader(req *http.Request) {
 
 func getTheHotReplyJsonUrl(number int) string {
 	return "https://api.bilibili.com/x/v2/reply/main?csrf=f5b57399c62e18808c56eebf2cdfec02&mode=3&oid=420981979&pagination_str=%7B%22offset%22:%22%7B%5C%22type%5C%22:1,%5C%22direction%5C%22:1,%5C%22data%5C%22:%7B%5C%22pn%5C%22:" + strconv.Itoa(number) + "%7D%7D%22%7D&plat=1&type=1"
-}
+
