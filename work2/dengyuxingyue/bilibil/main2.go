@@ -2,23 +2,21 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
-
 	"time"
 
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
 )
 
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
 func main() {
+	//创建文件
+	file, err := os.Create("comment.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
 	// 启动 ChromeDriver /path/to/chromedriver
 	wd, err := selenium.NewChromeDriverService("C:/Users/86181/AppData/Local/Google/Chrome/Application/chromedriver.exe", 5869)
 	if err != nil {
@@ -77,9 +75,10 @@ func main() {
 	}
 	initialHeight := int(height.(float64))
 
-	// 初始化一个空的切片用于存储已经打印的文本
-	printedText := make([]string, 0)
-	for i := 0; i <= 30; i++ {
+	// 初始化一个空的map用于存储已经打印的文本
+	printedText := make(map[string]bool)
+
+	for {
 		// 将滚动条滚动到页面底部
 		_, err = driver.ExecuteScript("window.scrollTo(0, document.body.scrollHeight)", nil)
 		if err != nil {
@@ -90,7 +89,7 @@ func main() {
 		// 等待加载更多评论
 		time.Sleep(3 * time.Second)
 
-		elements, err := driver.FindElements(selenium.ByXPATH, "//span[@class='reply-content-container root-reply']")
+		elements, err := driver.FindElements(selenium.ByXPATH, "//div[@class='reply-item']")
 		if err != nil {
 			fmt.Println("查找元素失败：", err)
 			return
@@ -99,38 +98,72 @@ func main() {
 		// 遍历获取到的元素
 		for _, element := range elements {
 			// 对每个元素进行操作
-			// 获取元素的文本内容
-
-			text, err := element.Text()
-			text += "\n"
+			// 首先获取到主评论elementfirst,并添加到txt中								".//span[@class='reply-content-container root-reply']"
+			firstUsername, _ := element.FindElement(selenium.ByXPATH, ".//div[@class='user-name']")
+			Pritext, err := firstUsername.Text()
+			elementfirst, _ := element.FindElement(selenium.ByXPATH, ".//span[@class='reply-content-container root-reply']")
+			s, _ := elementfirst.Text()
+			Pritext = Pritext + ": " + s + "\n"
+			Sumtext := Pritext
 			if err != nil {
 				fmt.Println("获取文本内容失败：", err)
 				continue
 			}
-
 			// 检查文本是否已经打印过
-			if contains(printedText, text) {
+			if printedText[Pritext] {
 				continue
 			}
 
+			//获取当前节点的子评论
+			/*
+				1. 首先尝试找到（点击查看）按钮，如果没找到就继续
+				2.如果找到，点击按钮，第一次添加当前文本到Sumtext
+			*/
+			button, err := element.FindElement(selenium.ByXPATH, ".//span[@class='view-more-btn']")
+			if err == nil && button != nil {
+				fmt.Println("ooooooooooooooooooooooooooooooooo")
+				driver.ExecuteScript("arguments[0].scrollIntoView(true);", []interface{}{button})
+				button.Click()
+				time.Sleep(1 * time.Second)
+				//点击之后会更新子评论
+
+				//当页子评论的集合
+				subreplyitems, _ := element.FindElements(selenium.ByXPATH, ".//div[@class='sub-reply-item']")
+
+				for _, subreplyitem := range subreplyitems {
+
+					replyuser, err := subreplyitem.FindElement(selenium.ByXPATH, ".//div[@class='sub-user-name']")
+					if err != nil {
+						continue
+					}
+					replycontent, err := subreplyitem.FindElement(selenium.ByXPATH, ".//span[@class='reply-content']")
+					if err != nil {
+						continue
+					}
+					username, _ := replyuser.Text()
+					srr, _ := replycontent.Text()
+					Sumtext = Sumtext + "\n" + username + ": " + srr
+				}
+				Sumtext += "\n"
+
+			}
+
 			// 打开文件，以追加的方式写入数据
-			file, err := os.OpenFile("comment.txt", os.O_APPEND|os.O_WRONLY, 0644)
+			file, err := os.OpenFile("comment.txt", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 			if err != nil {
 				fmt.Println("打开文件失败：", err)
 				return
 			}
 			defer file.Close()
-
 			// 将评论写入文件
-			_, err = fmt.Fprintln(file, text)
+			_, err = fmt.Fprintln(file, Sumtext)
 			if err != nil {
 				fmt.Println("写入文件失败：", err)
 				return
 			}
 
-			// 将已打印的文本添加到列表中
-			printedText = append(printedText, text)
-
+			// 将已打印的文本添加到map中
+			printedText[Pritext] = true
 		}
 
 		// 判断滚动后页面高度是否发生变化
@@ -147,9 +180,9 @@ func main() {
 			height, _ = driver.ExecuteScript(js, nil)
 			newHeight := int(height.(float64))
 			if newHeight == initialHeight {
-				continue
+
 			} else {
-				break
+				continue
 			}
 
 		} else {
