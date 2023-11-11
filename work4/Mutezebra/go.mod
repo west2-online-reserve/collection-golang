@@ -12,6 +12,7 @@ require (
 	github.com/qiniu/go-sdk/v7 v7.18.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.16.0
+	github.com/streadway/amqp v1.1.0
 	golang.org/x/crypto v0.9.0
 	gorm.io/driver/mysql v1.5.1
 	gorm.io/gorm v1.25.4

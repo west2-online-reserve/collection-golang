@@ -12,6 +12,7 @@ const (
 	DeleteVideoFailed      = 30009
 	CreateVideoFailed      = 30010
 	OSSUploadVideoFailed   = 30011
+	CachedVideoFailed      = 30012
 
 	VideoCommentCreateFailed     = 40001
 	UpdateVideoCommentTreeFailed = 40002

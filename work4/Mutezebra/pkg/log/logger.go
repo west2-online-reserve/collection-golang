@@ -59,7 +59,7 @@ func setOutPutFile() (*os.File, error) {
 		}
 	}
 	logFileName := now.Format("2006-01-02") + ".log"
-	fileName := logFilePath + logFileName
+	fileName := logFilePath + "/" + logFileName
 	_, err = os.Stat(fileName)
 	if err != nil {
 		_, err = os.Create(fileName)

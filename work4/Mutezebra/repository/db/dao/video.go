@@ -21,6 +21,11 @@ func (dao *VideoDao) FindVideoByVideoID(vid uint) (video *model.Video, err error
 	return video, err
 }
 
+func (dao *VideoDao) UpdateVideoViews(vid uint, view int) error {
+	err := dao.DB.Model(&model.Video{}).Where("id=?", vid).UpdateColumn("view", view).Error
+	return err
+}
+
 func (dao *VideoDao) Create(ch chan *model.Video, chErr chan error) {
 	var err error
 	v := &model.Video{}

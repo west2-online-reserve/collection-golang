@@ -46,3 +46,10 @@ qiniu:
   DefaultAvatarPath: "stastic/avatars/default.jpg"
   Bucket: ""
   Domain: ""
+
+rabbitmq:
+  RabbitMQ: "amqp"
+  RabbitMQUser: "guest"
+  RabbitMQPassWord: "guest"
+  RabbitMQHost: rabbitmq
+  RabbitMQPort: "5672"

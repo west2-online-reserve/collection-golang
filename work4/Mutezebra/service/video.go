@@ -10,6 +10,7 @@ import (
 	"four/pkg/e"
 	"four/pkg/log"
 	"four/pkg/myutils"
+	"four/repository/cache"
 	"four/repository/db/dao"
 	"four/repository/db/model"
 	"four/repository/es/doc"
@@ -154,11 +155,11 @@ func (s *VideoSrv) Upload(ctx context.Context, req *types.VideoUploadReq, videoH
 
 	// 返回resp
 	data := &types.VideoInfoResp{
-		ID:        v.ID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Uid:       v.Uid,
-		Size:      v.Size,
+		ID:        strconv.Itoa(int(v.ID)),
+		CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
+		UpdatedAt: time.Now().Format("2006-01-02 15:04:05"),
+		Uid:       strconv.Itoa(int(v.Uid)),
+		Size:      strconv.FormatInt(v.Size, 10),
 		Url:       v.Url,
 	}
 	return ctl.RespSuccessWithData(code, data), err
@@ -267,19 +268,46 @@ func (s *VideoSrv) Reply(ctx context.Context, req *types.VideoCommentReq) (resp 
 func (s *VideoSrv) Show(ctx context.Context, req *types.VideoShowReq) (resp interface{}, err error) {
 	code := e.SUCCESS
 	videoDao := dao.NewVideoDao(ctx)
-	video, err := videoDao.FindVideoByVideoID(req.VID)
-	if err != nil {
-		code = e.FindVideoFailed
-		return ctl.RespError(code, err), err
+
+	// 先查看缓存中有没有video的info
+	videoResp := cache.GetVideoInfo(req.VID)
+	var data *types.VideoInfoResp
+	if videoResp != nil {
+		data = videoResp
+	} else {
+		video, err := videoDao.FindVideoByVideoID(req.VID)
+		if err != nil {
+			code = e.FindVideoFailed
+			return ctl.RespError(code, err), err
+		}
+		err = video.SetVideoInfoCache()
+		if err != nil {
+			code = e.CachedVideoFailed
+			return ctl.RespError(code, err), err
+		}
+		data = &types.VideoInfoResp{
+			ID:        strconv.Itoa(int(video.ID)),
+			CreatedAt: video.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt: video.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Uid:       strconv.Itoa(int(video.Uid)),
+			Title:     video.Title,
+			Intro:     video.Intro,
+			Tag:       video.Tag,
+		}
 	}
+
+	video := &model.Video{}
+	video.ID = req.VID
+	views := video.Views()
+	data.Views = strconv.Itoa(views)
+
+	// 将数据同步到es
 	v := &esmodel.Video{}
 	hit, id, err := doc.DocSearch(v, "vid", video.ID)
 	if err != nil {
 		code = e.SearchDocFailed
 		return ctl.RespError(code, err), err
 	}
-
-	views := video.Views()
 	_ = json.Unmarshal(hit.Source, v)
 	err = doc.DocUpdate(v, "view", views, id)
 	if err != nil {
@@ -287,18 +315,7 @@ func (s *VideoSrv) Show(ctx context.Context, req *types.VideoShowReq) (resp inte
 		return ctl.RespError(code, err), err
 	}
 
-	data := &types.VideoInfoResp{
-		ID:        video.ID,
-		CreatedAt: video.CreatedAt,
-		UpdatedAt: video.UpdatedAt,
-		Uid:       video.Uid,
-		Title:     video.Title,
-		Intro:     video.Intro,
-		Tag:       video.Tag,
-		Views:     views,
-	}
 	video.AddView()
-
 	return ctl.RespSuccessWithData(code, data), err
 }
 
@@ -327,5 +344,6 @@ func (s *VideoSrv) Delete(ctx context.Context, req *types.VideoDeleteReq) (resp 
 		return ctl.RespError(code, err), err
 	}
 	model.DECVideoCount(userInfo.UserName)
+	model.DeleteViewCached(req.Vid)
 	return ctl.RespSuccess(code), nil
 }

@@ -9,13 +9,14 @@ var Config *Conf
 var WorkDir string
 
 type Conf struct {
-	System *System           `yaml:"system"`
-	MySql  map[string]*MySql `yaml:"mysql"`
-	Email  map[string]*Email `yaml:"email"`
-	Redis  *Redis            `yaml:"redis"`
-	Local  *Local            `yaml:"local"`
-	ES     *ES               `yaml:"es"`
-	QiNiu  *QiNiu            `yaml:"qiniu"`
+	System   *System           `yaml:"system"`
+	MySql    map[string]*MySql `yaml:"mysql"`
+	Email    map[string]*Email `yaml:"email"`
+	Redis    *Redis            `yaml:"redis"`
+	Local    *Local            `yaml:"local"`
+	ES       *ES               `yaml:"es"`
+	QiNiu    *QiNiu            `yaml:"qiniu"`
+	RabbitMQ *RabbitMQ         `yaml:"rabbitmq"`
 }
 
 type MySql struct {
@@ -71,6 +72,14 @@ type QiNiu struct {
 	VideoPath         string `yaml:"VideosPath"`
 	Bucket            string `yaml:"Bucket"`
 	Domain            string `yaml:"Domain"`
+}
+
+type RabbitMQ struct {
+	RabbitMQ         string `yaml:"RabbitMQ"`
+	RabbitMQUser     string `yaml:"RabbitMQUser"`
+	RabbitMQPassWord string `yaml:"RabbitMQPassWord"`
+	RabbitMQHost     string `yaml:"RabbitMQHost"`
+	RabbitMQPort     string `yaml:"RabbitMQPort"`
 }
 
 func InitConfig() {

@@ -51,6 +51,7 @@ var MsgFlags = map[int]string{
 	CreateVideoFailed:      "Create video failed",
 	DeleteVideoFailed:      "Delete video failed",
 	OSSUploadVideoFailed:   "oss upload file failed",
+	CachedVideoFailed:      "cached video failed",
 
 	//comment
 	VideoCommentCreateFailed:     "Video comment create failed",

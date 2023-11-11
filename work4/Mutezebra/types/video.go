@@ -1,7 +1,5 @@
 package types
 
-import "time"
-
 type VideoUploadReq struct {
 	Title string `json:"title" form:"title"`
 	Intro string `json:"intro" form:"intro"`
@@ -17,14 +15,14 @@ type VideoDeleteReq struct {
 }
 
 type VideoInfoResp struct {
-	ID        uint      `json:"ID,omitempty"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
-	UpdatedAt time.Time `json:"updatedAt,omitempty"`
-	Uid       uint      `json:"uid,omitempty"`
-	Title     string    `json:"title,omitempty"`
-	Intro     string    `json:"intro,omitempty"`
-	Tag       string    `json:"tag,omitempty"`
-	Size      int64     `json:"size,omitempty"`
-	Views     int       `json:"views,,omitempty"`
-	Url       string    `json:"url,omitempty"`
+	ID        string `json:"ID,omitempty"`
+	CreatedAt string `json:"createdAt,omitempty"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
+	Uid       string `json:"uid,omitempty"`
+	Title     string `json:"title,omitempty"`
+	Intro     string `json:"intro,omitempty"`
+	Tag       string `json:"tag,omitempty"`
+	Size      string `json:"size,omitempty"`
+	Views     string `json:"views,,omitempty"`
+	Url       string `json:"url,omitempty"`
 }

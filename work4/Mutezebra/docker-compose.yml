@@ -67,6 +67,19 @@ services:
 #      videoWebSite:
 #        ipv4_address: 172.31.0.5
 
+  rabbitmq:
+    image: rabbitmq:latest
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=mutezebra
+      - RABBITMQ_DEFAULT_PASS=Mute0919..
+    ports:
+      - "5672:5672"
+    restart: always
+    networks:
+      videoWebSite:
+        ipv4_address: 172.31.0.10
+
   web:
     build: .
     container_name: web

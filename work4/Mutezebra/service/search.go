@@ -71,12 +71,12 @@ func (s *SearchSrv) Search(ctx context.Context, req *types.SearchReq) (resp inte
 	var videosInfo []types.VideoInfoResp
 	for _, v := range videos {
 		info := types.VideoInfoResp{
-			ID:        v.ID,
+			ID:        strconv.Itoa(int(v.ID)),
 			Title:     v.Title,
 			Intro:     v.Intro,
-			Views:     v.Views(),
+			Views:     strconv.Itoa(v.Views()),
 			Url:       v.Url,
-			CreatedAt: v.CreatedAt,
+			CreatedAt: v.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 		videosInfo = append(videosInfo, info)
 	}
@@ -170,12 +170,12 @@ func (s *SearchSrv) Filter(ctx context.Context, req *types.FilterReq) (resp inte
 	var videosInfo []types.VideoInfoResp
 	for _, v := range videos {
 		info := types.VideoInfoResp{
-			ID:        v.ID,
+			ID:        strconv.Itoa(int(v.ID)),
 			Title:     v.Title,
 			Intro:     v.Intro,
-			Views:     v.Views(),
+			Views:     strconv.Itoa(v.Views()),
 			Url:       v.Url,
-			CreatedAt: v.CreatedAt,
+			CreatedAt: v.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 		videosInfo = append(videosInfo, info)
 	}
