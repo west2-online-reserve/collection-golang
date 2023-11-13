@@ -17,7 +17,7 @@ var Db *sql.DB
 
 // 同步并且限制goroutines 数量
 var wg = sync.WaitGroup{}
-var ch1 = make(chan bool, 80)
+var ch1 = make(chan bool, 60)
 
 // 初始化数据库
 func init() {
