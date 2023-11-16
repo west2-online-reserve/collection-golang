@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -26,26 +27,28 @@ func fetch(url1 string) string {
 	req.Header.Set("Referer", "https://www.bilibili.com/")
 
 	resp, err := client.Do(req)
-
 	if err != nil {
-		fmt.Println("Http get err:", err)
-		return ""
-	}
-
-	if resp.StatusCode != 200 {
-		fmt.Println("Http status err:", err)
+		fmt.Println(err)
 		return ""
 	}
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Read error", err)
-		return ""
+	result := make([]byte, 0)
+	temp := make([]byte, 409600)
+	for {
+		n, err := resp.Body.Read(temp)
+		if n == 0 {
+			break
+		}
+		if err != nil && err != io.EOF {
+			// 处理其他错误
+			continue
+		}
+		result = append(result, temp[:n]...)
 	}
+	return string(result)
 
-	return string(body)
 }
 
 // 获取指定页码的评论数据保存并返回
@@ -61,6 +64,7 @@ func getPage(page int) (txt string) {
 
 // 传入子评论的id获取子评论并保存
 func getSecondreply(Root string, pn float64) {
+
 	baseURL := "https://api.bilibili.com/x/v2/reply/reply"
 	params := url.Values{}
 	params.Set("type", "1")
@@ -92,13 +96,38 @@ func getSecondreply(Root string, pn float64) {
 		fmt.Println("Error reading response body:", err)
 		return
 	}
+	//strPn := strconv.FormatFloat(pn, 'f', -1, 64)
+	//url := "https://api.bilibili.com/x/v2/reply/reply?csrf=6f81254eb1291177725c64919659378d&oid=420981979&pn=1&ps=10&root=" + Root + "&type=1"
+	//data := fetch(url)
+	doc, err := jsonquery.Parse(strings.NewReader(string(body)))
+	if err != nil {
+		fmt.Printf("wrong in getting reply,err:%v", err)
+	}
+	total := jsonquery.FindOne(doc, "/data/page/count")
+	if total == nil {
+		return
+	}
+	Sumcount := int(total.Value().(float64))
+
+	pages := 0
+	//每页最多十条评论
+	if (Sumcount % 10) == 0 {
+		pages = Sumcount / 10
+	} else {
+		pages = (Sumcount / 10) + 1
+	}
+
 	strPn := strconv.FormatFloat(pn, 'f', -1, 64)
-	fileName := "第" + strPn + "页.txt"
-	checkAndWriteToFile(fileName, string(body))
+	for i := 1; i <= pages; i++ {
+		url := "https://api.bilibili.com/x/v2/reply/reply?csrf=6f81254eb1291177725c64919659378d&oid=420981979&pn=" + strconv.Itoa(i) + "&ps=10&root=" + Root + "&type=1"
+		dataReply := fetch(url)
+		path := "第 " + strPn + "页" + Root + ".txt"
+		checkAndWriteToFile(path, dataReply)
+	}
 
 }
 
-// 获取子评论的id以及当前评论的页数
+// 获取当页子评论的id以及当前评论的页数
 func getSecondId(data string) (list []string, pn float64) {
 	doc, err := jsonquery.Parse(strings.NewReader(data))
 	if err != nil {
@@ -151,6 +180,7 @@ func checkAndWriteToFile(filename string, content string) error {
 func main() {
 
 	for i := 1; i <= 200; i++ {
+		fmt.Println(i)
 		data := getPage(i)
 		ids, pn := getSecondId(data)
 		for _, id := range ids {

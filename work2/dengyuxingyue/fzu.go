@@ -86,17 +86,18 @@ func parse(html string) {
 }
 
 // 获取正文并检验时间是否合法
-func parseNext(url string) {
+func parseNext(url string) bool {
 	body := fetch(url)
 	time := FindTime(body)
 	isTrue, date := parseTime(time)
 	fmt.Println(date)
 	if !isTrue {
 		fmt.Printf("时间不合法:%s\n", date)
-		return
+		return false
 	}
 	str := "\t\t\t" + FindTitle(body) + "\n时间:" + time + "\n" + Findtxt(body)
 	writeFile(FindTitle(body)+".txt", str)
+	return true
 
 }
 
@@ -187,8 +188,10 @@ func parseTime(t string) (bool, string) {
 }
 func main() {
 	url := "https://info22.fzu.edu.cn/lm_list.jsp?totalpage=962&PAGENUM=1&urltype=tree.TreeTempUrl&wbtreeid=1460"
-	c := 162
-	for {
+	start := 162
+	end := 279
+	c := start
+	for c <= end {
 
 		url = "https://info22.fzu.edu.cn/lm_list.jsp?totalpage=962&PAGENUM=" + strconv.Itoa(c) + "&urltype=tree.TreeTempUrl&wbtreeid=1460"
 		s := fetch(url)
