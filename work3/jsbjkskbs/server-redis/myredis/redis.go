@@ -2,6 +2,8 @@ package myredis
 
 import (
 	"errors"
+	"server-redis/mysql"
+	"time"
 
 	"github.com/go-redis/redis"
 )
@@ -29,11 +31,55 @@ func RedisInit() error {
 	return nil
 }
 
-func RedisInsert(key string, data interface{}) (int64, error) {
-	if count, err := redisDB.RPush(key, Struct2Json(data)).Result(); err != nil {
-		return -1, err
+func RedisAccountSync() error {
+	list, err := mysql.MySQLAccountSyncPack()
+	if err != nil {
+		return err
+	}
+
+	var cursor uint64
+
+	for {
+		keys, cursor, err := accountDB.Scan(cursor, "*", 0).Result()
+		if err != nil {
+			return err
+		}
+		for _, key := range keys {
+			if err = accountDB.Del(key).Err(); err != nil {
+				return err
+			}
+		}
+		if cursor == 0 {
+			break
+		}
+	}
+
+	for i := range list {
+		if err := accountDB.Set(list[i].Username, list[i].Password, 0).Err(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func RedisExpire(key string) error {
+	response, err := redisDB.Expire(key, time.Minute*10).Result()
+	if err != nil {
+		return err
+	}
+	if response {
+		return nil
 	} else {
-		return count - 1, err
+		return errors.New("set expire failed")
+	}
+}
+
+func RedisInsert(key string, data interface{}) error {
+	if _, err := redisDB.RPush(key, Struct2Json(data)).Result(); err != nil {
+		return err
+	} else {
+		return nil
 	}
 }
 
@@ -172,6 +218,9 @@ func RedisCheckAccount(username, password string) (bool, error) {
 func RedisCreateAccount(username, password string) error {
 	if find, _ := RedisFindAccount(username); find {
 		return errors.New("this account exists")
+	}
+	if err := mysql.MySQLAccountCreate(username, password); err != nil {
+		return err
 	}
 	if _, err := accountDB.Set(username, password, 0).Result(); err != nil {
 		return err

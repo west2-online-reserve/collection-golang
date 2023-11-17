@@ -19,7 +19,7 @@ import (
 // @schemes http
 // @BasePath /
 func main() {
-	initialize.RedisInit()
+	initialize.DatabaseInit()
 	initialize.MidWareInit()
 	s := server.Default(server.WithHostPorts(cfg.ServerHost))
 	initialize.ServerInit(s)

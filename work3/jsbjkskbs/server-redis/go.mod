@@ -4,6 +4,7 @@ go 1.21.0
 
 require (
 	github.com/cloudwego/hertz v0.7.0
+	github.com/go-sql-driver/mysql v1.7.1
 	github.com/hertz-contrib/swagger v0.1.0
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/swag v1.16.1

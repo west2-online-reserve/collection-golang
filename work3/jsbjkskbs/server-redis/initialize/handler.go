@@ -222,7 +222,7 @@ func authorTodolistDeleteHandler() app.HandlerFunc {
 		if isExist {
 			var deleteCondition datastruct.TodolistBindRedisCondition
 			json.Unmarshal(body, &deleteCondition)
-			if cnt, err := dataprocesser.DeleteUserTodoList(user.(*datastruct.User).Username, deleteCondition); err != nil {
+			if err := dataprocesser.DeleteUserTodoList(user.(*datastruct.User).Username, deleteCondition); err != nil {
 				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
 					Message: "",
@@ -232,7 +232,7 @@ func authorTodolistDeleteHandler() app.HandlerFunc {
 			} else {
 				c.JSON(consts.StatusOK, datastruct.ShortResponse{
 					Status:  consts.StatusOK,
-					Message: fmt.Sprintf("ok,remove %d text(s)", cnt),
+					Message: "ok",
 					Error:   "",
 				})
 			}
@@ -271,7 +271,7 @@ func authorTodolistModifyHandler() app.HandlerFunc {
 			var modifyCondition datastruct.TodolistBindRedisUpdate
 			json.Unmarshal(body, &modifyCondition)
 
-			if cnt, err := dataprocesser.UpdateTodoList(user.(*datastruct.User).Username, modifyCondition); err != nil {
+			if err := dataprocesser.UpdateTodoList(user.(*datastruct.User).Username, modifyCondition); err != nil {
 				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
 					Message: "",
@@ -281,7 +281,7 @@ func authorTodolistModifyHandler() app.HandlerFunc {
 			} else {
 				c.JSON(consts.StatusOK, datastruct.ShortResponse{
 					Status:  consts.StatusOK,
-					Message: fmt.Sprintf("ok,update %d text(s)", cnt),
+					Message: "ok",
 					Error:   "",
 				})
 			}

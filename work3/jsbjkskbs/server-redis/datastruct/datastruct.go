@@ -65,3 +65,12 @@ type TodolistBindRedisUpdate struct {
 	NewStatus bool    `json:"isdone" example:"false"`
 	Method    int     `json:"method" example:"1"`
 }
+
+type ProcessStruct struct {
+	Title    string `json:"title"`
+	Owner    string `json:"owner"`
+	Text     string `json:"text"`
+	Addtime  string `json:"addtime"`
+	Deadline string `json:"deadline"`
+	Isdone   bool   `json:"isdone"`
+}

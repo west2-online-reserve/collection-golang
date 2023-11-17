@@ -4,6 +4,7 @@ import (
 	"server-redis/cfg"
 	"server-redis/midware"
 	"server-redis/myredis"
+	"server-redis/mysql"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/swagger"
@@ -11,8 +12,20 @@ import (
 )
 
 // 数据库初始化
-func RedisInit() {
-	if err:=myredis.RedisInit();err!=nil{
+func DatabaseInit() {
+	if err:=mysql.ConnectDataBase();err!=nil{
+		panic(err)
+	}
+	if err := mysql.MySQLAccountInit(); err != nil {
+		panic(err)
+	}
+	if err := mysql.MySQLTodolistInit(); err != nil {
+		panic(err)
+	}
+	if err := myredis.RedisInit(); err != nil {
+		panic(err)
+	}
+	if err:=myredis.RedisAccountSync();err!=nil{
 		panic(err)
 	}
 }
@@ -31,7 +44,7 @@ func ServerInit(s *server.Hertz) {
 
 	s.GET("/test", testHandler())
 
-	s.GET("/swagger/*any", swagger.WrapHandler(swaggerFiles.Handler,swagger.URL("http://"+cfg.ServerHost+"/swagger/doc.json")))
+	s.GET("/swagger/*any", swagger.WrapHandler(swaggerFiles.Handler, swagger.URL("http://"+cfg.ServerHost+"/swagger/doc.json")))
 
 	authorGroup := s.Group("/author", authorizeHandler())
 

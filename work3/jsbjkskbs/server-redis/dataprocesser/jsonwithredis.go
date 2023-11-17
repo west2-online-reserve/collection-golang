@@ -5,43 +5,55 @@ import (
 	"server-redis/cfg"
 	"server-redis/datastruct"
 	"server-redis/myredis"
+	"server-redis/mysql"
 	"strings"
-	"time"
 
 	"errors"
 )
 
 func InsertReceiveTodolist(data datastruct.TodolistBindJSONReceive) (int64, error) {
-	type ProcessStruct struct {
-		Title    string `json:"title"`
-		Owner    string `json:"owner"`
-		Text     string `json:"text"`
-		Addtime  string `json:"addtime"`
-		Deadline string `json:"deadline"`
-		Isdone   bool   `json:"isdone"`
+
+	id, err := mysql.MySQLTodolistInsert(data)
+	if err != nil {
+		return -1, err
 	}
 
-	return myredis.RedisInsert(data.Owner, ProcessStruct{
-		Title:    data.Title,
-		Owner:    data.Owner,
-		Text:     data.Text,
-		Addtime:  time.Unix(time.Now().Local().Unix(), 0).Format("2006-01-02 15:04:05"),
-		Deadline: data.Deadline,
-		Isdone:   false,
-	})
+	return id, TodolistSync(data.Owner)
 
+}
+
+func TodolistSync(username string) error {
+	items, err := mysql.MySQLTodoListSyncPack(username)
+	if err != nil {
+		return errors.New("sync error in mysql")
+	}
+	if err = myredis.RedisRemoveAll(username); err != nil {
+		return errors.New("sync error in redis")
+	}
+	for i := range items {
+		if err := myredis.RedisInsert(username, items[i]); err != nil {
+			return errors.New("sync error in redis")
+		}
+	}
+	myredis.RedisExpire(username)
+	return nil
 }
 
 func GetUserTodolist(username string) (datastruct.TodolistBindJSONSendArray, error) {
 	if items, err := myredis.RedisGetAll(username); err != nil {
 		return datastruct.TodolistBindJSONSendArray{}, err
 	} else {
+		if len(items) == 0 {
+			TodolistSync(username)
+			if items, err = myredis.RedisGetAll(username); err != nil {
+				return datastruct.TodolistBindJSONSendArray{}, err
+			}
+		}
 		var result datastruct.TodolistBindJSONSendArray
 		result.Todolist.List = make([]datastruct.TodolistBindJSONSend, len(items))
 		for i := range items {
 			data, _ := json.Marshal(items[i])
 			json.Unmarshal(data, &result.Todolist.List[i])
-			result.Todolist.List[i].Id = int64(i) + 1
 		}
 		return result, nil
 	}
@@ -55,6 +67,14 @@ func SearchUserTodoList(username string, condition datastruct.TodolistBindRedisC
 	totalData, err := GetUserTodolist(username)
 	if err != nil {
 		return datastruct.SendingJSONData{}, false, err
+	}
+	if len(totalData.Todolist.List) == 0 {
+		if err = TodolistSync(username); err != nil {
+			return datastruct.SendingJSONData{}, false, err
+		}
+		if totalData, err = GetUserTodolist(username); err != nil {
+			return datastruct.SendingJSONData{}, false, err
+		}
 	}
 	result := make([]datastruct.TodolistBindJSONSend, 0)
 	switch condition.Method {
@@ -96,7 +116,10 @@ func SearchUserTodoList(username string, condition datastruct.TodolistBindRedisC
 			}
 		}
 		if (searchPage-1)*cfg.ItemsCountInPage > len(result) {
-			return datastruct.SendingJSONData{}, true, nil
+			return datastruct.SendingJSONData{
+				Items: nil,
+				Count: 0,
+				Total: 0}, true, nil
 		} else if searchPage*cfg.ItemsCountInPage > len(result) {
 			end = len(result)
 		} else {
@@ -114,7 +137,10 @@ func SearchUserTodoList(username string, condition datastruct.TodolistBindRedisC
 			}
 		}
 		if (searchPage-1)*cfg.ItemsCountInPage > len(result) {
-			return datastruct.SendingJSONData{}, true, nil
+			return datastruct.SendingJSONData{
+				Items: nil,
+				Count: 0,
+				Total: 0}, true, nil
 		} else if searchPage*cfg.ItemsCountInPage > len(result) {
 			end = len(result)
 		} else {
@@ -129,91 +155,23 @@ func SearchUserTodoList(username string, condition datastruct.TodolistBindRedisC
 	return datastruct.SendingJSONData{}, false, errors.New("wrong method")
 }
 
-func DeleteUserTodoList(username string, condition datastruct.TodolistBindRedisCondition) (int, error) {
-	totalData, err := GetUserTodolist(username)
-	if err != nil {
-		return 0, err
+func DeleteUserTodoList(username string, condition datastruct.TodolistBindRedisCondition) error {
+	if (condition.Method&cfg.DeleteAll) != cfg.DeleteAll &&
+		(condition.Method&cfg.DeleteWithId) != cfg.DeleteWithId &&
+		(condition.Method&cfg.DeleteWithStatus) != cfg.DeleteWithStatus {
+		return errors.New("wrong method")
 	}
-	if len(totalData.Todolist.List) == 0 {
-		return 0, errors.New("no data exist")
+	if err := mysql.MySQLTodoListDelete(username, condition); err != nil {
+		return err
 	}
-	index := make([]int64, 0)
-	switch condition.Method {
-	case cfg.DeleteAll:
-		if err := myredis.RedisRemoveAll(username); err != nil {
-			return 0, err
-		}
-		return len(totalData.Todolist.List), nil
-	case cfg.DeleteWithStatus:
-		for i := range totalData.Todolist.List {
-			if totalData.Todolist.List[i].Status == condition.Status {
-				index = append(index, int64(i)-1)
-			}
-		}
-		if err := myredis.RedisMultRemove(username, index); err != nil {
-			return 0, err
-		}
-		return len(index), nil
-	case cfg.DeleteWithId:
-		for i := range condition.Idlist {
-			condition.Idlist[i]--
-		}
-		if err := myredis.RedisMultRemove(username, condition.Idlist); err != nil {
-			return 0, err
-		}
-		return len(condition.Idlist), nil
-	case cfg.DeleteWithId | cfg.DeleteWithStatus:
-		for i := range condition.Idlist {
-			if totalData.Todolist.List[i].Status == condition.Status {
-				index = append(index, int64(i)-1)
-			}
-		}
-		if err := myredis.RedisMultRemove(username, index); err != nil {
-			return 0, err
-		}
-		return len(index), nil
-	}
-	return 0, errors.New("wrong method")
+	return TodolistSync(username)
 }
 
-func UpdateTodoList(username string, msg datastruct.TodolistBindRedisUpdate) (int, error) {
-	totalData, err := GetUserTodolist(username)
-	if err != nil {
-		return 0, err
+func UpdateTodoList(username string, msg datastruct.TodolistBindRedisUpdate) error {
+	if (msg.Method&cfg.ModifyAll) != cfg.ModifyAll &&
+		(msg.Method&cfg.ModifyWithId) != cfg.ModifyWithId {
+		return errors.New("wrong method")
 	}
-	if len(totalData.Todolist.List) == 0 {
-		return 0, errors.New("no data exist")
-	}
-	switch msg.Method {
-	case cfg.ModifyAll:
-		if items, err := myredis.RedisPopAll(username); err != nil {
-			return 0, err
-		} else {
-			for i := range items {
-				items[i].(map[string]interface{})["isdone"] = msg.NewStatus
-				myredis.RedisInsert(username, items[i])
-			}
-			return len(items), nil
-		}
-	case cfg.ModifyWithId:
-		if len(msg.Idlist) == 0 {
-			return 0, errors.New("idlist empty")
-		}
-		for i := range msg.Idlist {
-			msg.Idlist[i]--
-		}
-		if items, err := myredis.RedisMultPop(username, msg.Idlist); err != nil {
-			return 0, err
-		} else {
-			if len(items) == 0 {
-				return 0, errors.New("no data exists")
-			}
-			for i := range items {
-				items[i].(map[string]interface{})["isdone"] = msg.NewStatus
-				myredis.RedisInsert(username, items[i])
-			}
-			return len(items), nil
-		}
-	}
-	return 0, errors.New("wrong method")
+	mysql.MySQLTodoListModify(username, msg)
+	return TodolistSync(username)
 }
