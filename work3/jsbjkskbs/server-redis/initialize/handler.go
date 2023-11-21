@@ -99,7 +99,7 @@ func authorTodolistAddHandler() app.HandlerFunc {
 			what2do.Owner = user.(*datastruct.User).Username
 			what2do.Status = false
 
-			if id, err := dataprocesser.InsertReceiveTodolist(what2do); err != nil {
+			if total, id, err := dataprocesser.InsertReceiveTodolist(what2do); err != nil {
 				log.Print("[Error] User[", user.(*datastruct.User).Username, "] operation:", err)
 				c.JSON(consts.StatusBadRequest, datastruct.ShortResponse{
 					Status:  consts.StatusBadRequest,
@@ -123,7 +123,7 @@ func authorTodolistAddHandler() app.HandlerFunc {
 							},
 						},
 						Count: 1,
-						Total: int(id),
+						Total: int(total),
 					},
 					Message: "ok",
 					Error:   "",

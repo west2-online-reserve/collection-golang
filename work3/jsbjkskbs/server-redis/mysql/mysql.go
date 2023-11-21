@@ -90,9 +90,9 @@ func MySQLTodolistInit() error {
 	return nil
 }
 
-func MySQLTodolistInsert(what2do datastruct.TodolistBindJSONReceive) (int64, error) {
+func MySQLTodolistInsert(what2do datastruct.TodolistBindJSONReceive) (int64, string, error) {
 	if len(what2do.Text) == 0 {
-		return 0, errors.New("text cannot be empty")
+		return 0, "", errors.New("text cannot be empty")
 	}
 
 	insertData := datastruct.ProcessStruct{
@@ -107,7 +107,7 @@ func MySQLTodolistInsert(what2do datastruct.TodolistBindJSONReceive) (int64, err
 	t1, _ := time.Parse("2006-01-02 15:04:05", insertData.Addtime)
 	t2, _ := time.Parse("2006-01-02 15:04:05", insertData.Deadline)
 	if t1.After(t2) {
-		return 0, errors.New("add time is after deadline")
+		return 0, "", errors.New("add time is after deadline")
 	}
 
 	insertCmd := "insert into todolist(title,owner,text,deadline,addtime)values (?,?,?,?,?)"
@@ -119,10 +119,10 @@ func MySQLTodolistInsert(what2do datastruct.TodolistBindJSONReceive) (int64, err
 		insertData.Deadline,
 		insertData.Addtime)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	id, _ := result.LastInsertId()
-	return id, nil
+	return id, insertData.Addtime, nil
 }
 
 func MySQLTodoListSyncPack(username string) ([]datastruct.TodolistBindJSONSend, error) {

@@ -2,6 +2,7 @@ package myredis
 
 import (
 	"errors"
+	"server-redis/cfg"
 	"server-redis/mysql"
 	"time"
 
@@ -13,14 +14,14 @@ var accountDB *redis.Client
 
 func RedisInit() error {
 	redisDB = redis.NewClient(&redis.Options{
-		Addr:     `127.0.0.1:6379`,
-		Password: "",
-		DB:       0,
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPwd,
+		DB:       cfg.TodoListDb,
 	})
 	accountDB = redis.NewClient(&redis.Options{
-		Addr:     `127.0.0.1:6379`,
-		Password: "",
-		DB:       1,
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPwd,
+		DB:       cfg.AccountDB,
 	})
 	if _, err := redisDB.Ping().Result(); err != nil {
 		panic(err)
@@ -226,4 +227,13 @@ func RedisCreateAccount(username, password string) error {
 		return err
 	}
 	return nil
+}
+
+func RedisExist(username string) (bool,error){
+	exists,err:=redisDB.Exists(username).Result()
+	return exists==1,err
+}
+
+func RedisCount(username string) (int64,error){
+	return redisDB.LLen(username).Result()
 }

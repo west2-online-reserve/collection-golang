@@ -11,17 +11,6 @@ import (
 	"errors"
 )
 
-func InsertReceiveTodolist(data datastruct.TodolistBindJSONReceive) (int64, error) {
-
-	id, err := mysql.MySQLTodolistInsert(data)
-	if err != nil {
-		return -1, err
-	}
-
-	return id, TodolistSync(data.Owner)
-
-}
-
 func TodolistSync(username string) error {
 	items, err := mysql.MySQLTodoListSyncPack(username)
 	if err != nil {
@@ -37,6 +26,41 @@ func TodolistSync(username string) error {
 	}
 	myredis.RedisExpire(username)
 	return nil
+}
+
+func InsertReceiveTodolist(data datastruct.TodolistBindJSONReceive) (int64, int64, error) {
+	id, addtime, err := mysql.MySQLTodolistInsert(data)
+	if err != nil {
+		return -1, -1,err
+	}
+	exist, err := myredis.RedisExist(data.Owner)
+	if err != nil {
+		return -1, -1,err
+	}
+	if exist {
+		err = myredis.RedisInsert(data.Owner, datastruct.TodolistBindJSONSend{
+			Id:       id,
+			Owner:    data.Owner,
+			Title:    data.Title,
+			Text:     data.Text,
+			Deadline: data.Deadline,
+			Addtime:  addtime,
+			Status:   data.Status,
+		})
+		if err != nil {
+			return -1, -1,err
+		}
+		myredis.RedisExpire(data.Owner)
+	} else {
+		if err = TodolistSync(data.Owner); err != nil {
+			return -1, -1,err
+		}
+	}
+	total, err := myredis.RedisCount(data.Owner)
+	if err != nil {
+		return -1, -1,err
+	}
+	return total, id,nil
 }
 
 func GetUserTodolist(username string) (datastruct.TodolistBindJSONSendArray, error) {
@@ -75,6 +99,8 @@ func SearchUserTodoList(username string, condition datastruct.TodolistBindRedisC
 		if totalData, err = GetUserTodolist(username); err != nil {
 			return datastruct.SendingJSONData{}, false, err
 		}
+	} else {
+		myredis.RedisExpire(username)
 	}
 	result := make([]datastruct.TodolistBindJSONSend, 0)
 	switch condition.Method {
