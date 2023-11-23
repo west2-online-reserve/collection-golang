@@ -1,9 +1,10 @@
-# Question1:
+
+### Question1:
     -1.数组是静态的，切片是动态的
     -2.数组是聚合类型，切片是引用类型
     -3.切片的底层仍是数组
 
-# Question2:
+### Question2:
     -slice：
         -有5种，分别为：
             -1.name := make([]T,length,capacity)
