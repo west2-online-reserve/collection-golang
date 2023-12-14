@@ -1,6 +1,0 @@
-DB_Config:
-        username: "root"
-        password: "root"
-        database: "dbname"
-        host: "127.0.0.1"
-        port: 3306
