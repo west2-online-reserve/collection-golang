@@ -1,3 +1,0 @@
-我昨天刚开始看Go的语法，理解尚浅。
-在我的认知中，Go中的数组 可以类比于 C++的数组 和 python的元组（tuple）
-	     Go中的切片 可以类比于 C++的vector 和 python的列表（list）
