@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -25,7 +26,7 @@ const (
 
 	// 使用 diff 的方式进行计算，以免页面总数变化对程序的影响（前提：历史文件不删除）
 	startPageDiffWithLastPage = (1028 - 230)
-	endPageDiffWithLastPage   = (1028 - 347)
+	endPageDiffWithLastPage   = (1028 - 250)
 
 	// 选择器
 	selectorTotalPagesLink = `.p_last a`
@@ -55,7 +56,6 @@ func httpGet(url string) (string, error) {
 	resp, err := client.Get(url)
 	if err != nil {
 		fmt.Printf("Error occurred while getting %s: %s", url, err)
-
 		return "", err
 	}
 
@@ -279,35 +279,56 @@ func main() {
 	fmt.Println("Total pages:", totalPages)
 
 	urlList := []string{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 20) // 限制并发
 
 	for page := (totalPages - startPageDiffWithLastPage); page <= (totalPages - endPageDiffWithLastPage); page++ {
-		list, err := getListPage(page, totalPages)
-		if err != nil {
-			fmt.Println("Error occurred while getting list page:", err)
-			return
-		}
+		wg.Add(1)
+		go func(page int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		urlList = append(urlList, list...)
+			list, err := getListPage(page, totalPages)
+			if err != nil {
+				fmt.Println("Error occurred while getting list page:", err)
+				return
+			}
+			mu.Lock()
+			urlList = append(urlList, list...)
+			mu.Unlock()
+		}(page)
 	}
+
+	wg.Wait()
 
 	fmt.Println("Total articles:", len(urlList))
 
-	articles := []ArticleResult{}
+	articleChan := make(chan ArticleResult, len(urlList))
 
 	for _, url := range urlList {
-		article, err := getArticlePage(url)
-		if err != nil {
-			fmt.Println("Error occurred while getting article page:", err)
-			return
-		}
+		wg.Add(1)
+		go func(url string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		articles = append(articles, article)
+			article, err := getArticlePage(url)
+			if err != nil {
+				fmt.Println("Error occurred while getting article page:", err)
+				return
+			}
+			articleChan <- article
+		}(url)
 	}
 
-	fmt.Println("Total articles parsed:", len(articles))
+	go func() {
+		wg.Wait()
+		close(articleChan)
+	}()
 
-	// Save articles to database using SQLite
-	for _, article := range articles {
+	for article := range articleChan {
 		insertDb(db, article)
 	}
 
