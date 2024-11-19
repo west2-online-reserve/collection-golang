@@ -1,14 +1,18 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -27,12 +31,15 @@ const (
 	selectorList           = `body > div.sy-content > div > div.right.fr > div.list.fl > ul > li`
 	selectorListLink       = `a[href^="content.jsp"]`
 	selectorTitle          = `body > div.wa1200w > div.conth > form > div.conth1`
-	selectorContent        = `#v_news_content`
+	selectorContent        = `#vsb_content`
 
 	// 正则
 	patternTotalPages = `(?s)totalpage=(?P<totalPages>\d+)`
 	patternDate       = `(?s)<div class="conthsj" >日期： (?P<date>.*?)  &nbsp;`
 	patternAuthor     = `(?s)信息来源..(?P<author>.*?)\n..`
+
+	// 数据库
+	databasePath = "res/fzu.db"
 )
 
 var (
@@ -156,7 +163,10 @@ func parseArticlePage(html string) (ArticleResult, error) {
 	}
 
 	title := doc.Find(selectorTitle).Text()
-	content := doc.Find(selectorContent).Text()
+	content, err := doc.Find(selectorContent).Html()
+	if err != nil {
+		return ArticleResult{}, err
+	}
 
 	regexpDate := regexp.MustCompile(patternDate)
 	regexpAuthor := regexp.MustCompile(patternAuthor)
@@ -190,7 +200,44 @@ func getArticlePage(urlSuffix string) (ArticleResult, error) {
 	return parseArticlePage(html)
 }
 
+func initDb() *sql.DB {
+	os.Remove(databasePath)
+
+	db, err := sql.Open("sqlite3", databasePath)
+	if err != nil {
+		log.Fatalln("Error occurred while opening database:", err)
+	}
+
+	sqlStmt := `
+	create table articles (id integer not null primary key autoincrement, title text, content text, author text, post_date text);
+	`
+
+	_, err = db.Exec(sqlStmt)
+	if err != nil {
+		log.Fatalf("%q: %s\n", err, sqlStmt)
+	}
+
+	return db
+}
+
+func insertDb(db *sql.DB, article ArticleResult) {
+	stmt, err := db.Prepare("INSERT INTO articles(title, content, author, post_date) values(?, ?, ?, ?)")
+	if err != nil {
+		log.Fatalln("Error occurred while preparing statement:", err)
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(article.Title, article.Content, article.Author, article.PostDate)
+	if err != nil {
+		log.Fatalln("Error occurred while executing statement:", err)
+	}
+}
+
 func main() {
+	db := initDb()
+	defer db.Close()
+
 	totalPages, err := getTotalPages()
 	if err != nil {
 		fmt.Println("Error occurred while getting total pages:", err)
@@ -227,10 +274,10 @@ func main() {
 
 	fmt.Println("Total articles parsed:", len(articles))
 
-	// TODO: Save articles to database
-
-	// print articles basic info
+	// Save articles to database using SQLite
 	for _, article := range articles {
-		fmt.Printf("%s\t%s\t\t\t%s\n", article.PostDate, article.Author, article.Title)
+		insertDb(db, article)
 	}
+
+	fmt.Println("All articles saved to database:", databasePath)
 }
