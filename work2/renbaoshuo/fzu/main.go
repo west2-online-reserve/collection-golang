@@ -19,8 +19,9 @@ const (
 	baseURL = "https://info22.fzu.edu.cn/"
 	listURL = "lm_list.jsp?urltype=tree.TreeTempUrl&wbtreeid=1460"
 
-	fmtWithBaseURL = baseURL + "%s"
-	fmtWithListURL = baseURL + listURL + "&totalpage=%d&PAGENUM=%d"
+	fmtWithBaseURL  = baseURL + "%s"
+	fmtWithListURL  = baseURL + listURL + "&totalpage=%d&PAGENUM=%d"
+	fmtWithClickURL = baseURL + "system/resource/code/news/click/dynclicks.jsp?clicktype=%s&owner=%s&clickid=%s"
 
 	// 使用 diff 的方式进行计算，以免页面总数变化对程序的影响（前提：历史文件不删除）
 	startPageDiffWithLastPage = (1028 - 230)
@@ -37,6 +38,7 @@ const (
 	patternTotalPages = `(?s)totalpage=(?P<totalPages>\d+)`
 	patternDate       = `(?s)<div class="conthsj" >日期： (?P<date>.*?)  &nbsp;`
 	patternAuthor     = `(?s)信息来源..(?P<author>.*?)\n..`
+	patternClicks     = `_showDynClicks\("(?P<clickType>\w+)", (?P<owner>\d+), (?P<clickId>\d+)\)`
 
 	// 数据库
 	databasePath = "res/fzu.db"
@@ -149,11 +151,23 @@ func getListPage(page int, totalPages int) ([]string, error) {
 	return parseListPage(html)
 }
 
+func getClicks(clickType, owner, clickId string) (int, error) {
+	url := fmt.Sprintf(fmtWithClickURL, clickType, owner, clickId)
+
+	data, err := httpGet(url)
+	if err != nil {
+		return 0, err
+	}
+
+	return strconv.Atoi(data)
+}
+
 type ArticleResult struct {
 	Title    string
 	Content  string
 	Author   string
 	PostDate string // YYYY-MM-DD
+	Clicks   int
 }
 
 func parseArticlePage(html string) (ArticleResult, error) {
@@ -170,9 +184,11 @@ func parseArticlePage(html string) (ArticleResult, error) {
 
 	regexpDate := regexp.MustCompile(patternDate)
 	regexpAuthor := regexp.MustCompile(patternAuthor)
+	regexpClicks := regexp.MustCompile(patternClicks)
 
 	matchesDate := regexpDate.FindStringSubmatch(html)
 	matchesAuthor := regexpAuthor.FindStringSubmatch(html)
+	matchesClicks := regexpClicks.FindStringSubmatch(html)
 
 	if len(matchesDate) < 2 || len(matchesAuthor) < 2 {
 		return ArticleResult{}, fmt.Errorf("no date or author found")
@@ -180,12 +196,21 @@ func parseArticlePage(html string) (ArticleResult, error) {
 
 	postDate := matchesDate[1]
 	author := matchesAuthor[1]
+	clickType := matchesClicks[1]
+	owner := matchesClicks[2]
+	clickId := matchesClicks[3]
+
+	clicks, err := getClicks(clickType, owner, clickId)
+	if err != nil {
+		return ArticleResult{}, err
+	}
 
 	return ArticleResult{
 		Title:    title,
 		Author:   author,
 		Content:  content,
 		PostDate: postDate,
+		Clicks:   clicks,
 	}, nil
 }
 
@@ -209,7 +234,14 @@ func initDb() *sql.DB {
 	}
 
 	sqlStmt := `
-	create table articles (id integer not null primary key autoincrement, title text, content text, author text, post_date text);
+	create table articles (
+		id integer not null primary key autoincrement,
+		title text,
+		content text,
+		author text,
+		post_date text,
+		clicks integer
+	);
 	`
 
 	_, err = db.Exec(sqlStmt)
@@ -221,14 +253,14 @@ func initDb() *sql.DB {
 }
 
 func insertDb(db *sql.DB, article ArticleResult) {
-	stmt, err := db.Prepare("INSERT INTO articles(title, content, author, post_date) values(?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO articles(title, content, author, post_date, clicks) VALUES(?, ?, ?, ?, ?)")
 	if err != nil {
 		log.Fatalln("Error occurred while preparing statement:", err)
 	}
 
 	defer stmt.Close()
 
-	_, err = stmt.Exec(article.Title, article.Content, article.Author, article.PostDate)
+	_, err = stmt.Exec(article.Title, article.Content, article.Author, article.PostDate, article.Clicks)
 	if err != nil {
 		log.Fatalln("Error occurred while executing statement:", err)
 	}
