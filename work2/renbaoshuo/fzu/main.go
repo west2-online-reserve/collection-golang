@@ -55,7 +55,7 @@ func httpGet(url string) (string, error) {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		fmt.Printf("Error occurred while getting %s: %s", url, err)
+		fmt.Printf("Error occurred while performing HTTP GET request to %s: %v", url, err)
 		return "", err
 	}
 
@@ -230,7 +230,7 @@ func initDb() *sql.DB {
 
 	db, err := sql.Open("sqlite3", databasePath)
 	if err != nil {
-		log.Fatalln("Error occurred while opening database:", err)
+		log.Fatalf("Error occurred while opening database '%s': %v", databasePath, err)
 	}
 
 	sqlStmt := `
