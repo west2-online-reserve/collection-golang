@@ -1,0 +1,23 @@
+数组与切片的区别
+1 数组长度固定 切片长度可变
+2 数组是栈的空间 切片是数组的抽象
+3 切片有内置方法 数组无
+4 传递数组是传递整个数组的拷贝 传递切片是传递切片的头部结构
+5 数组是切片的底层实现
+
+slice创建方法:
+1 slice：=make([]T,len,cap)
+1.1 slice:=make([]T,len)
+2 arr :=[]T{}
+  slice:=arr[start;end]
+3 slice=append(slice,...)
+4 copy(slice1,slice2)
+5 var slice []T=arr[start:end]
+
+map创建方法:
+1 mp:=make(map[KEY][VALUE])
+2 mp:=map[KEY][VALUE] {
+    key1:value1,
+    ........
+}
+3 var mp map[KEY][VALUE]

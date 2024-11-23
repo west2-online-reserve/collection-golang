@@ -1,0 +1,56 @@
+2.1)区别
+数组：定义时需指定长度，长度无法动态改变；
+	内存空间大小固定；
+	数组作为函数参数时，函数操作不会影响原始数组。
+
+切片：长度可变，可自动扩容；
+	内存空间运行时动态分配，大小可变；
+	当切片作为函数参数时，函数操作的是切片的引用，会影响原始切片；
+	切片比数组多一个容量的属性。
+
+2)创建切片的方式
+```
+	`//1 声明切片, 未进行初始化，为nil`
+	`var s1 []int`
+	`// 类型：[]int, 长度：0, 容量：0, 值：[]int(nil), 地址:0xc000004078`	
+	
+	`//2 声明并初始化, 不为nil，但长度为0，容量为0，`
+	`var s2 []int = []int{}`
+	`// 类型：[]int, 长度：0, 容量：0, 值：[]int{}, 地址:0xc000004090`
+	
+	`//2.1 同s2, 采用短变量声明`
+	`s3 := []int{}`
+	`// 类型：[]int, 长度：0, 容量：0, 值：[]int{}, 地址:0xc0000040d8`
+
+	`//3. 基于数组创建切片`
+	`// [low:high:max] low <= high <= max, 且max<=len(arr), 且[low,high),`
+	`// 且将数组作为切片的底层数组，在不扩容时操作基于该数组，若发生扩容则与该数组无关`
+	`arr := [5]int{1, 2}`
+	`s4 := arr[0:4:4]`
+	`s5 := append(s4, 6)`
+	
+	`//4. 使用make创建切片`
+	`// make([]T, length, capacity)`
+	`s6 := make([]int, 10)`
+	`s7 := make([]int, 10, 20)`
+```
+	
+
+3)创建map的方式
+```
+	//1. 声明
+	var m1 map[string]string
+
+	// 类型：map[string]string, 长度：0, 值：map[string]string(nil), 地址:0xc000006028
+	
+	//2. 使用map[keyType]valueType
+	var m2 map[string]string = map[string]string{}
+
+	// 类型：map[string]string, 长度：0, 值：map[string]string{}, 地址:0xc000006038 
+	
+	//3. 使用make
+	var m3 map[string]string = make(map[string]string)
+	
+	// 类型：map[string]string, 长度：0, 值：map[string]string{}, 地址:0xc000006040 
+```
+	
