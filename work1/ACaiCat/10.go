@@ -6,30 +6,42 @@ import (
 )
 
 var (
-	number int
-	mu     sync.Mutex
+	current = 1
+	m       = 6
+	n       = 1114514
 )
 
 func main() {
-	m := 6
-	n := 114514
-	ch := make(chan struct{}) // 创建一个管道用来等待打印完成
-	for i := 0; i < m; i++ {
-		go printNumber(ch, n)
-	}
-	<-ch // 未没有打印完成时阻塞主程序
+	lock := &sync.Mutex{}
+	c := sync.NewCond(lock)
+	wg := &sync.WaitGroup{}
 
+	for i := 0; i < m; i++ {
+		wg.Add(1)
+		go printNumber(i, c, wg)
+	}
+
+	wg.Wait()
 }
-func printNumber(ch chan struct{}, n int) {
+func printNumber(id int, c *sync.Cond, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
-		mu.Lock()
-		if number == n {
-			ch <- struct{}{} // 向管道发送空结构体以结束主程序
-			mu.Unlock()      // 打开锁以便其他goroutine释放 (感觉是不是有点咸鱼了)
+		c.L.Lock()
+		if current%m != id && current <= n {
+			c.Wait()
+			c.L.Unlock()
+			continue
+		}
+
+		if current > n {
+			c.Broadcast()
+			c.L.Unlock()
 			return
 		}
-		number++
-		fmt.Println(number)
-		mu.Unlock()
+
+		fmt.Printf("worker-%d: %d\n", id, current)
+		current++
+		c.Broadcast()
+		c.L.Unlock()
 	}
 }
