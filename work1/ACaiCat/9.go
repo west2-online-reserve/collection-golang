@@ -33,6 +33,6 @@ func main() {
 		fmt.Printf("prime:%d\n", prime)
 		out := make(chan int)
 		go filter(ch, out, prime) // 启动一个新的filter过滤当前的质数的倍数
-		ch = out                  // 扩展管道链
+		ch = out                  // 扩展流水线
 	}
 }
