@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -128,7 +130,7 @@ func crawlPage(page int, totalPage int) []article {
 			day, _ := strconv.Atoi(ymd[2])
 			// 只爬取 2020-01-01 ~ 2021-09-01 的文章
 			if year == 2020 || (year == 2021 && month < 9) || (year == 2021 && month == 9 && day == 1) {
-				norm := normalizeHref("https://info22.fzu.edu.cn", href)
+				norm := normalizeUrl("https://info22.fzu.edu.cn", href)
 
 				// 继续请求正文
 				req, err := http.NewRequest("GET", norm, nil)
@@ -147,10 +149,14 @@ func crawlPage(page int, totalPage int) []article {
 					log.Fatal(err)
 				}
 
-				// body > div.wa1200w > div.conth > form > div.conthsj > span
-				// body > div.wa1200w > div.conth > form > div.conthsj > script
-				clicksStr := docDetail.Find("body > div.wa1200w > div.conth > form > div.conthsj > span").Text()
-				clicks, _ := strconv.Atoi(clicksStr)
+				/*
+					// 点击数不是静态数据。用下面注释的代码只会得到0。
+					clicksStr := docDetail.Find("body > div.wa1200w > div.conth > form > div.conthsj > span").Text()
+					clicks, _ := strconv.Atoi(clicksStr)
+				*/
+
+				script := docDetail.Find("body > div.wa1200w > div.conth > form > div.conthsj > script").Text()
+				clicks := requestDynClicks(script, client)
 
 				// #vsb_content > div > p:nth-child(1)
 				// #vsb_content > div > p:nth-child(2)
@@ -170,11 +176,38 @@ func crawlPage(page int, totalPage int) []article {
 	return articles
 }
 
-/* 标准化url地址 */
-func normalizeHref(base string, href string) string {
-	href = strings.TrimSpace(href)
+/* 获取点赞数。逻辑遵照网页中的_showDynClicks函数 */
+func requestDynClicks(script string, client http.Client) int {
+
+	// script长这样：_showDynClicks("wbnews", 1768654345, 39406)
+
+	reg := regexp.MustCompile(`_showDynClicks\("([^"]+)",\s(\d+),\s(\d+)\)`)
+	matches := reg.FindStringSubmatch(script)
+
+	clickType := matches[1]
+	owner := matches[2]
+	clickId := matches[3]
+
+	url := normalizeUrl("https://info22.fzu.edu.cn",
+		"/system/resource/code/news/click/dynclicks.jsp?clickid="+clickId+"&owner="+owner+"&clicktype="+clickType)
+	resp, err := client.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	reg = regexp.MustCompile(`\d+`)
+	clicksStr := reg.FindString(string(body))
+	clicks, _ := strconv.Atoi(clicksStr)
+	return clicks
+}
+
+/* 拼接url地址 */
+func normalizeUrl(base string, relative string) string {
+	relative = strings.TrimSpace(relative)
 	b, _ := url.Parse(base)
-	u, _ := url.Parse(href)
+	u, _ := url.Parse(relative)
 	abs := b.ResolveReference(u) // 拼接根链接和相对地址
 	return abs.String()
 }
