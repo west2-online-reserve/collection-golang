@@ -1,0 +1,10 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = true
+	symlinks = false
+	ignorecase = true
+	longpaths = true
+[remote "origin"]
+	url = https://github.com/yourusername/goproject01
+	fetch = +refs/heads/*:refs/remotes/origin/*
