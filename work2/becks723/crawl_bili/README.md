@@ -3,6 +3,9 @@
 
 ## 发布说明
 
+- 0.4.0 - 2025-10-12
+  - 支持输入视频BV号爬取
+
 - 0.3.0 - 2025-10-10
   - 写入数据库
   - 整理项目结构
@@ -154,4 +157,6 @@ https://api.bilibili.com/x/v2/reply/reply?oid=115206004939189&type=1&root=276117
 | `Uid`  | 用户uid | `bigint`       | `primary key` |
 | `Name` | 用户名  | `varchar(100)` |               |
 | `Sex`  | 性别    | `varchar(20)`  |               |
+
+### 爬虫检测阈值
 

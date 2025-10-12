@@ -63,7 +63,7 @@ func crawlComments(oid string) (comments []mainComment) {
 	for {
 		fmt.Printf("正在爬取第 %d 页的评论\n", p)
 		offset = crawl(oid, offset, &comments)
-		time.Sleep(1 * time.Millisecond)
+		//time.Sleep(1 * time.Microsecond)
 		p++
 
 		if offset == "" {
@@ -120,7 +120,7 @@ func crawl(oid string, offset string, comments *[]mainComment) (nextOffset strin
 		log.Fatal(err)
 	}
 
-	/*for i, r := range rd.Data.Replies {
+	for i, r := range rd.Data.Replies {
 		// 获取子评论
 		var subComments []comment
 		pcount := ceil(float64(r.Rcount) / float64(ps)) // 总页数
@@ -146,7 +146,7 @@ func crawl(oid string, offset string, comments *[]mainComment) (nextOffset strin
 			SubComments: subComments,
 		}
 		*comments = append(*comments, mc)
-	}*/
+	}
 
 	nextOffset = rd.Data.Cursor.Pagination_reply.Next_offset
 	return
