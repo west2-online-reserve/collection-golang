@@ -62,8 +62,10 @@ func crawlComments(oid string) (comments []mainComment) {
 	offset := ""
 	for {
 		fmt.Printf("正在爬取第 %d 页的评论\n", p)
-		offset = crawl(oid, offset, &comments)
-		//time.Sleep(1 * time.Microsecond)
+		offset, mc := crawl(oid, offset)
+		for _, c := range mc {
+			comments = append(comments, c)
+		}
 		p++
 
 		if offset == "" {
@@ -74,7 +76,7 @@ func crawlComments(oid string) (comments []mainComment) {
 }
 
 /* 爬取一个评论页，并返回下一页的offset。若返回为空，则说明为最后一页 */
-func crawl(oid string, offset string, comments *[]mainComment) (nextOffset string) {
+func crawl(oid string, offset string) (nextOffset string, comments []mainComment) {
 	unix := time.Now().Unix()
 	nowtime := strconv.FormatInt(unix, 10)
 	w_rid, pagination_str := getSign(oid, offset, nowtime)
@@ -126,7 +128,9 @@ func crawl(oid string, offset string, comments *[]mainComment) (nextOffset strin
 		pcount := ceil(float64(r.Rcount) / float64(ps)) // 总页数
 		for pn := 1; pn <= pcount; pn++ {
 			fmt.Printf("正在爬取第 %d 页的子评论……\n", pn)
-			crawlSub(oid, r.Rpid_str, pn, &subComments)
+			for _, c := range crawlSub(oid, r.Rpid_str, pn) {
+				subComments = append(subComments, c)
+			}
 			time.Sleep(1 * time.Second)
 		}
 
@@ -145,7 +149,7 @@ func crawl(oid string, offset string, comments *[]mainComment) (nextOffset strin
 			},
 			SubComments: subComments,
 		}
-		*comments = append(*comments, mc)
+		comments = append(comments, mc)
 	}
 
 	nextOffset = rd.Data.Cursor.Pagination_reply.Next_offset
@@ -153,7 +157,7 @@ func crawl(oid string, offset string, comments *[]mainComment) (nextOffset strin
 }
 
 /* 爬取一页的子评论 */
-func crawlSub(oid string, root string, pn int, subComments *[]comment) {
+func crawlSub(oid string, root string, pn int) (subComments []comment) {
 	baseUrl := "https://api.bilibili.com/x/v2/reply/reply"
 
 	params := url.Values{}
@@ -202,8 +206,9 @@ func crawlSub(oid string, root string, pn int, subComments *[]comment) {
 				Sex:  r.Member.Sex,
 			},
 		}
-		*subComments = append(*subComments, c)
+		subComments = append(subComments, c)
 	}
+	return
 }
 
 func getSign(oid string, offset string, nowtime string) (w_rid string, pagination_str string) {

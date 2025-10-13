@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -28,40 +27,27 @@ func crawlFzuAsync(maxPageCount int, maxRoutineCount int) []article {
 		maxPageCount = DefaultMaxPage
 	}
 
-	var wg sync.WaitGroup
-	articleCh := make(chan []article, maxPageCount)   // 管道用于接收每一页的数据并汇总
 	routineCh := make(chan struct{}, maxRoutineCount) // 管道用于限制最大并行量
+
+	var articles []article
 
 	for page := 1; page <= maxPageCount; page++ {
 		routineCh <- struct{}{}
-		wg.Add(1)
 		go func(page int) {
 			defer func() { <-routineCh }()
-			defer wg.Done()
 			defer fmt.Printf("第 %d 页数据爬取完成！\n", page)
-			articleCh <- crawlPage(page, maxPageCount)
+			for _, a := range crawlPage(page, maxPageCount) {
+				articles = append(articles, a)
+			}
 		}(page)
 	}
-
-	// 阻塞数据管道关闭，直到全部爬取完。否则range管道无法执行
-	go func() {
-		wg.Wait()
-		close(articleCh)
-	}()
 
 	// 阻塞主routine，等待最后几个协程完成爬取
 	for i := 0; i < cap(routineCh); i++ {
 		routineCh <- struct{}{}
 	}
 
-	// 汇总所有文章数据
-	var all []article
-	for articles := range articleCh {
-		for _, v := range articles {
-			all = append(all, v)
-		}
-	}
-	return all
+	return articles
 }
 
 /* 串行爬取fzu通信文件系统 */
@@ -73,8 +59,7 @@ func crawlFzu(maxPageCount int) []article {
 	var articles []article
 
 	for page := 1; page <= maxPageCount; page++ {
-		pageArticles := crawlPage(page, maxPageCount)
-		for _, a := range pageArticles {
+		for _, a := range crawlPage(page, maxPageCount) {
 			articles = append(articles, a)
 		}
 		fmt.Printf("第 %d 页数据爬取完成！\n", page)
