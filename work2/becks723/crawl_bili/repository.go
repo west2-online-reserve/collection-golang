@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -72,8 +73,26 @@ func insertComments(db *sql.DB, comments []mainComment) (err error) {
 		}
 	}()
 
+	// 批量保存用户和评论
+	var userValues, commValues []interface{}
+	var userPlaceholders, commPlaceholders int
+
+	for _, mc := range comments {
+		userValues = append(userValues, mc.User.Uid, mc.User.Name, mc.User.Sex)
+		commValues = append(commValues, mc.Rpid, mc.Ctime, mc.Like, mc.Message, mc.User.Uid, nil) // 主评论
+		userPlaceholders++
+		commPlaceholders++
+		for _, sc := range mc.SubComments {
+			userValues = append(userValues, sc.User.Uid, sc.User.Name, sc.User.Sex)
+			commValues = append(commValues, sc.Rpid, sc.Ctime, sc.Like, sc.Message, sc.User.Uid, mc.Rpid) // 子评论
+			userPlaceholders++
+			commPlaceholders++
+		}
+	}
+
 	// 准备写入评论
-	query := fmt.Sprintf("INSERT INTO %s (`Rpid`, `Ctime`, `Like`, `Message`, `Uid`, `Root`) VALUES (?, ?, ?, ?, ?, ?)", TBNAME)
+	query := fmt.Sprintf("INSERT INTO %s (`Rpid`, `Ctime`, `Like`, `Message`, `Uid`, `Root`) VALUES %s",
+		TBNAME, placeholder(commPlaceholders, "(?, ?, ?, ?, ?, ?)"))
 	stmt, err := db.Prepare(query)
 	if err != nil {
 		return
@@ -81,35 +100,33 @@ func insertComments(db *sql.DB, comments []mainComment) (err error) {
 	defer stmt.Close()
 
 	// 准备写入用户信息
-	stmtUser, err := db.Prepare("INSERT IGNORE INTO user (`Uid`, `Name`, `Sex`) VALUES (?, ?, ?)")
+	stmtUser, err := db.Prepare("INSERT IGNORE INTO user (`Uid`, `Name`, `Sex`) VALUES " +
+		placeholder(userPlaceholders, "(?, ?, ?)"))
 	if err != nil {
 		return
 	}
 	defer stmtUser.Close()
 
-	for _, mc := range comments {
-		fmt.Printf("正在保存评论（rpid=%d）\n", mc.Rpid)
-		_, err = stmtUser.Exec(mc.User.Uid, mc.User.Name, mc.User.Sex) // 保存用户信息。必须优先于评论保存，因为user表是主表，外键uid必须先存在
-		if err != nil {
-			return
-		}
-		_, err = stmt.Exec(mc.Rpid, mc.Ctime, mc.Like, mc.Message, mc.User.Uid, nil) // 保存主评论
-		if err != nil {
-			return
-		}
-		for _, sc := range mc.SubComments {
-			fmt.Printf("正在保存子评论（rpid=%d）\n", sc.Rpid)
-			_, err = stmtUser.Exec(sc.User.Uid, sc.User.Name, sc.User.Sex) // 保存用户信息
-			if err != nil {
-				return
-			}
-			_, err = stmt.Exec(sc.Rpid, sc.Ctime, sc.Like, sc.Message, sc.User.Uid, mc.Rpid) // 保存子评论
-			if err != nil {
-				return
-			}
-		}
+	_, err = stmtUser.Exec(userValues) // 保存用户信息。必须优先于评论保存，因为user表是主表，外键uid必须先存在
+	if err != nil {
+		return
+	}
+	_, err = stmt.Exec(commValues) // 保存评论
+	if err != nil {
+		return
 	}
 
 	_ = tx.Commit()
 	return
+}
+
+func placeholder(length int, content string) string {
+	b := strings.Builder{}
+
+	b.WriteString(content)
+	for i := 1; i < length; i++ {
+		b.WriteString(" ")
+		b.WriteString(content)
+	}
+	return b.String()
 }
