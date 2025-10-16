@@ -56,6 +56,6 @@ func SaveComment(db *gorm.DB, c Comment) {
 	if err != nil {
 		log.Printf("❌ 插入失败: %v", err)
 	} else {
-		log.Printf("💾 已保存评论 #%d 来自 %s", m.Rpid, m.Uname)
+		log.Printf("💾 已保存评论 #%d 来自 %s 字数 %d", m.Rpid, m.Uname, len(m.Message))
 	}
 }

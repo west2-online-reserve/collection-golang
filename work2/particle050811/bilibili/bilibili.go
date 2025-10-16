@@ -101,7 +101,7 @@ type Content struct {
 // 抓取指定主评(root=rpid)下所有子评
 func fetchSubReplies(root int64, mix string, aid int64) ([]Comment, error) {
 	var all []Comment
-	for pn := 1; pn <= 50; pn++ {
+	for pn := 1; ; pn++ {
 		u := getReplyURL(root, pn, 20, mix, aid) // 每页 20 条
 		b := fetch(u)
 		var r struct {
@@ -134,7 +134,7 @@ func main() {
 
 	db := openDB("comments.db")
 
-	for page := 1; page <= 1; page++ {
+	for page := 1; ; page++ {
 		//  query（不含 w_rid/wts）
 		pg := url.QueryEscape(fmt.Sprintf(`{"offset":"%s"}`, offset))
 
@@ -145,16 +145,19 @@ func main() {
 		if err := json.Unmarshal(b, &r); err != nil {
 			panic(err)
 		}
-		for _, c := range r.Data.Replies {
-			SaveComment(db, c)
-			subs, err := fetchSubReplies(c.Rpid, mix, aid)
-			log.Printf("主评 %d 的子评数量 = %d", c.Rpid, len(subs))
-			if err == nil {
-				for _, sc := range subs {
-					SaveComment(db, sc)
+		go func() {
+			for _, c := range r.Data.Replies {
+				SaveComment(db, c)
+				subs, err := fetchSubReplies(c.Rpid, mix, aid)
+				log.Printf("主评 %d 的子评数量 = %d", c.Rpid, len(subs))
+				if err == nil {
+					for _, sc := range subs {
+						SaveComment(db, sc)
+					}
 				}
 			}
-		}
+		}()
+
 		// 下一页 offset
 		if r.Data.Cursor.PaginationReply.NextOffset == "" {
 			break
