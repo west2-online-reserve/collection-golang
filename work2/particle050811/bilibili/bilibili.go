@@ -26,12 +26,7 @@ func init() {
 	mix = mixinKey(imgKey, subKey) // 生成 mixinKey
 	log.Printf("mix = %s\n", mix)
 }
-
-// 修正：不要预先对 pagination_str 做 QueryEscape
-func getCommentURL(offset string) string {
-	// 原始 JSON 字符串，参与签名与最终 URL 一致，只在 Encode() 时编码一次
-	pg := fmt.Sprintf(`{"offset":"%s"}`, offset)
-
+func getCommentURL(pg string) string {
 	q := map[string]string{
 		"oid":            fmt.Sprintf("%d", aid),
 		"type":           "1",
@@ -40,20 +35,21 @@ func getCommentURL(offset string) string {
 		"plat":           "1",
 	}
 
-	// 注意：signWbi 内部必须按字典序排序并按与最终 URL 相同的方式编码后再拼接
 	wts, wRid := signWbi(q, mix)
 
-	v := url.Values{}
-	for k, val := range q {
-		v.Set(k, val) // 只编码一次
-	}
-	v.Set("wts", wts)
-	v.Set("w_rid", wRid)
-
-	return "https://api.bilibili.com/x/v2/reply/wbi/main?" + v.Encode()
+	// 拼 URL
+	u := "https://api.bilibili.com/x/v2/reply/wbi/main?" +
+		"oid=" + q["oid"] +
+		"&type=" + q["type"] +
+		"&mode=" + q["mode"] +
+		"&pagination_str=" + q["pagination_str"] +
+		"&plat=1" +
+		"&wts=" + wts +
+		"&w_rid=" + wRid
+	return u
 }
 
-// 修正子评接口：使用 /wbi/reply，且签名参数集与最终 URL 完全一致
+// 生成子评论接口 URL：/x/v2/reply/wbi/reply
 func getReplyURL(root int64, pn, ps int, mix string, aid int64) string {
 	q := map[string]string{
 		"oid":  fmt.Sprintf("%d", aid),
@@ -63,17 +59,11 @@ func getReplyURL(root int64, pn, ps int, mix string, aid int64) string {
 		"ps":   fmt.Sprintf("%d", ps),
 		"plat": "1",
 	}
-
-	wts, wRid := signWbi(q, mix)
-
-	v := url.Values{}
-	for k, val := range q {
-		v.Set(k, val)
-	}
-	v.Set("wts", wts)
-	v.Set("w_rid", wRid)
-
-	return "https://api.bilibili.com/x/v2/reply/wbi/reply?" + v.Encode()
+	wts, wRid := signWbi(q, mix) // 来自 webkey.go
+	return "https://api.bilibili.com/x/v2/reply/reply?" +
+		"oid=" + q["oid"] + "&type=1&root=" + q["root"] +
+		"&pn=" + q["pn"] + "&ps=" + q["ps"] + "&plat=1" +
+		"&wts=" + wts + "&w_rid=" + wRid
 }
 
 // CommentResponse 表示 Bilibili 评论 API 的完整响应
@@ -111,7 +101,7 @@ type Content struct {
 // 抓取指定主评(root=rpid)下所有子评
 func fetchSubReplies(root int64, mix string, aid int64) ([]Comment, error) {
 	var all []Comment
-	for pn := 1; ; pn++ {
+	for pn := 1; pn <= 50; pn++ {
 		u := getReplyURL(root, pn, 20, mix, aid) // 每页 20 条
 		b := fetch(u)
 		var r struct {
@@ -144,8 +134,11 @@ func main() {
 
 	db := openDB("comments.db")
 
-	for page := 1; ; page++ {
-		b := fetch(getCommentURL(offset))
+	for page := 1; page <= 1; page++ {
+		//  query（不含 w_rid/wts）
+		pg := url.QueryEscape(fmt.Sprintf(`{"offset":"%s"}`, offset))
+
+		b := fetch(getCommentURL(pg))
 
 		var r CommentResponse
 
