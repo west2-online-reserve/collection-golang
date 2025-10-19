@@ -10,5 +10,6 @@ type Notice struct {
 	Author      string
 	Title       string
 	Body        string
+	ClickTimes  int
 	URL         string
 }

@@ -15,39 +15,25 @@ const (
 	sessionData = "258c5504%2C1776402420%2C5b6aa%2Aa1CjB0kJAW0APVakrP1hyrCZeLf-5IeASCuq04kwZEKhAGYBWyDY4urU8hVk0OBIcYMtMSVkRRYm1TaTZHb3Z0Q2cyemtmNWpTRDVhV0JMcDhxVjJaMDk4SDBQSTVRYUVMNXl0cHhqcjA3d3VCc3BLQWZRYVBpTEd1azRiSTQzWHRDSlpLZDgteV93IIEC"
 	oid         = "420981979"
 	baseurl     = "https://api.bilibili.com/x/v2/reply/wbi/main"
-	maxRate     = 10
-	maxBurst    = 5
+	maxRate     = 20
+	maxBurst    = 1
 )
-
-var offset string
 
 func main() {
 	InitDB()
-	offset, _ = fetchComment("")
-	ctx, cancel := context.WithCancel(context.Background())
+	offset, _ := fetchComment("")
 	limiter := rate.NewLimiter(rate.Limit(maxRate), maxBurst)
-	for range maxBurst {
-		startCrawler(ctx, cancel, limiter)
-	}
-
-	<-ctx.Done()
-
+	startCrawler(limiter, offset)
 }
 
-func startCrawler(ctx context.Context, cancel context.CancelFunc, limiter *rate.Limiter) {
+func startCrawler(limiter *rate.Limiter, offset string) {
 	for {
 		_ = limiter.Wait(context.Background())
-		select {
-		case <-ctx.Done():
+		nextOffset, end := fetchComment(offset)
+		if end {
 			return
-		default:
-			nextOffset, end := fetchComment(offset)
-			if end {
-				cancel()
-				return
-			}
-			offset = nextOffset
 		}
+		offset = nextOffset
 	}
 }
 
