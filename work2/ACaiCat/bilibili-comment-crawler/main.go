@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -6,81 +6,104 @@ import (
 	"fmt"
 	"net/http"
 	url2 "net/url"
+	"strconv"
 	"time"
 
 	"golang.org/x/time/rate"
 )
 
 const (
-	sessionData = "258c5504%2C1776402420%2C5b6aa%2Aa1CjB0kJAW0APVakrP1hyrCZeLf-5IeASCuq04kwZEKhAGYBWyDY4urU8hVk0OBIcYMtMSVkRRYm1TaTZHb3Z0Q2cyemtmNWpTRDVhV0JMcDhxVjJaMDk4SDBQSTVRYUVMNXl0cHhqcjA3d3VCc3BLQWZRYVBpTEd1azRiSTQzWHRDSlpLZDgteV93IIEC"
+	sessionData = "..."
 	oid         = "420981979"
-	baseurl     = "https://api.bilibili.com/x/v2/reply/wbi/main"
-	maxRate     = 20
+	baseurl     = "https://api.bilibili.com/x/v2/reply"
+	maxRate     = 0.01
 	maxBurst    = 1
 )
 
 func main() {
 	InitDB()
-	offset, _ := fetchComment("")
+	ctx, cancel := context.WithCancel(context.Background())
 	limiter := rate.NewLimiter(rate.Limit(maxRate), maxBurst)
-	startCrawler(limiter, offset)
+	c := make(chan int)
+
+	go func() {
+		for page := 1; ; page++ {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				c <- page
+			}
+		}
+	}()
+
+	for range maxBurst {
+		go startCrawler(ctx, cancel, c, limiter)
+	}
+
+	<-ctx.Done()
+
 }
 
-func startCrawler(limiter *rate.Limiter, offset string) {
+func startCrawler(ctx context.Context, cancel context.CancelFunc, c <-chan int, limiter *rate.Limiter) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case page := <-c:
+			end := fetchComment(limiter, page)
+			if end {
+				cancel()
+				return
+			}
+		}
+	}
+}
+
+func fetchComment(limiter *rate.Limiter, page int) bool {
 	for {
 		_ = limiter.Wait(context.Background())
-		nextOffset, end := fetchComment(offset)
-		if end {
-			return
+		client := &http.Client{Timeout: 5 * time.Second}
+		parm := url2.Values{}
+		parm.Set("oid", oid)
+		parm.Set("type", "1")
+		parm.Set("sort", "1")
+		parm.Set("pn", strconv.Itoa(page))
+		tagetURL, _ := url2.ParseRequestURI(baseurl)
+		tagetURL.RawQuery = parm.Encode()
+
+		req, _ := http.NewRequest("GET", tagetURL.String(), nil)
+		req.AddCookie(&http.Cookie{
+			Name:  "SESSDATA",
+			Value: sessionData,
+		})
+
+		response, err := client.Do(req)
+
+		fmt.Println("GET", page, response.Status)
+
+		if err != nil {
+			fmt.Println("Failed to request Bili API:", err.Error())
 		}
-		offset = nextOffset
-	}
-}
 
-func fetchComment(offset string) (string, bool) {
-	client := &http.Client{Timeout: 5 * time.Second}
-	parm := url2.Values{}
-	parm.Set("oid", oid)
-	parm.Set("type", "1")
-	parm.Set("mode", "3")
-	parm.Set("plat", "1")
-	parm.Set("web_location", "1315875")
-	parm.Set("seek_rpid", "")
-	parm.Set("pagination_str", fmt.Sprintf(`{"offset":"%s"}`, offset))
+		if response.StatusCode != http.StatusOK {
+			continue
+		}
 
-	tagetURL, _ := url2.ParseRequestURI(baseurl)
-	tagetURL.RawQuery = parm.Encode()
-	err := Sign(tagetURL)
-	if err != nil {
-		fmt.Println("Failed to sign url:", tagetURL.String())
+		defer response.Body.Close()
+
+		var result APIResponse
+
+		err = json.NewDecoder(response.Body).Decode(&result)
+		if err != nil {
+			fmt.Println("Failed to decode JSON:", err.Error())
+			return false
+		}
+		processComments(result.Data.Replies)
+
+		return result.Code == http.StatusBadRequest
 	}
 
-	req, _ := http.NewRequest("GET", tagetURL.String(), nil)
-	req.AddCookie(&http.Cookie{
-		Name:  "SESSDATA",
-		Value: sessionData,
-	})
-
-	response, err := client.Do(req)
-
-	fmt.Println("GET ", offset, response.Status)
-
-	if err != nil {
-		fmt.Println("Failed to request Bili API:", err.Error())
-	}
-
-	defer response.Body.Close()
-
-	var result APIResponse
-
-	err = json.NewDecoder(response.Body).Decode(&result)
-	if err != nil {
-		fmt.Println("Failed to decode JSON:", err.Error())
-		return "", false
-	}
-	processComments(result.Data.Replies)
-
-	return result.Data.Cursor.PaginationReply.NextOffset, result.Data.Cursor.IsEnd
 }
 
 func processComments(rawComments []Reply) {

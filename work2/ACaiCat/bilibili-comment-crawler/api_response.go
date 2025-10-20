@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 // APIResponse API响应
 type APIResponse struct {
@@ -10,20 +10,16 @@ type APIResponse struct {
 
 // Data 负载数据
 type Data struct {
-	Cursor  Cursor  `json:"cursor"`  //游标
+	Cursor  Page    `json:"cursor"`  //游标
 	Replies []Reply `json:"replies"` //评论
 }
 
-// PaginationReply 页码信息
-type PaginationReply struct {
-	NextOffset string `json:"next_offset"` // 下一页评论的偏移量，is_end为true时不存在
-}
-type Cursor struct {
-	IsBegin         bool            `json:"is_begin"`         //第一页
-	IsEnd           bool            `json:"is_end"`           //最后一页
-	PaginationReply PaginationReply `json:"pagination_reply"` //页码信息
-	AllCount        int             `json:"all_count"`        //评论总数
-	Name            string          `json:"name"`             //评论类型 最新评论|最热评论
+// Page 页码信息
+type Page struct {
+	Num    int `json:"num"`    //当前页码
+	Size   int `json:"size"`   //当前页评论数
+	Count  int `json:"count"`  //展示评论数
+	Acount int `json:"acount"` //总评论数
 }
 
 // Content 内容
