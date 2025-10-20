@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 // APIResponse API响应
 type APIResponse struct {
@@ -10,7 +10,7 @@ type APIResponse struct {
 
 // Data 负载数据
 type Data struct {
-	Cursor  Page    `json:"cursor"`  //游标
+	Page    Page    `json:"page"`    //页码
 	Replies []Reply `json:"replies"` //评论
 }
 

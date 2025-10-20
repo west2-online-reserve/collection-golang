@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"context"
@@ -16,7 +16,7 @@ const (
 	sessionData = "..."
 	oid         = "420981979"
 	baseurl     = "https://api.bilibili.com/x/v2/reply"
-	maxRate     = 0.01
+	maxRate     = 0.3
 	maxBurst    = 1
 )
 
@@ -25,7 +25,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	limiter := rate.NewLimiter(rate.Limit(maxRate), maxBurst)
 	c := make(chan int)
-
+	defer close(c)
 	go func() {
 		for page := 1; ; page++ {
 			select {
@@ -87,10 +87,9 @@ func fetchComment(limiter *rate.Limiter, page int) bool {
 		}
 
 		if response.StatusCode != http.StatusOK {
+			response.Body.Close()
 			continue
 		}
-
-		defer response.Body.Close()
 
 		var result APIResponse
 
@@ -100,7 +99,7 @@ func fetchComment(limiter *rate.Limiter, page int) bool {
 			return false
 		}
 		processComments(result.Data.Replies)
-
+		response.Body.Close()
 		return result.Code == http.StatusBadRequest
 	}
 
