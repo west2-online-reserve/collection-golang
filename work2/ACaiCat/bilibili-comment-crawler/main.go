@@ -98,9 +98,14 @@ func fetchComment(limiter *rate.Limiter, page int) bool {
 			fmt.Println("Failed to decode JSON:", err.Error())
 			return false
 		}
+
+		if result.Code == -400 {
+			return true
+		}
+
 		processComments(result.Data.Replies)
 		response.Body.Close()
-		return result.Code == http.StatusBadRequest
+		return false
 	}
 
 }
