@@ -14,6 +14,7 @@ func main() {
 			remaining++
 		}
 	}
+	arr = arr[:remaining]
 	arr = append(arr, 114514)
 	fmt.Println(arr)
 }
