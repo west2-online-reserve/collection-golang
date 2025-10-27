@@ -105,3 +105,5 @@ git fsck
 
 #### ans:解决方法和上述相同
 
+### markdown：后续上交work:更新远程仓库，pull到本地仓库，add work文件，add .不要用，尽量就add 指定文件夹，不然commit啥都改了
+
