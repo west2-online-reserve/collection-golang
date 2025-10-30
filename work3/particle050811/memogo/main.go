@@ -3,10 +3,15 @@
 package main
 
 import (
+	"memogo/biz/dal/db"
+
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
 func main() {
+	// 初始化数据库
+	db.Init()
+
 	h := server.Default()
 
 	register(h)

@@ -4,7 +4,11 @@ package api
 
 import (
 	"context"
+	"errors"
+	"memogo/biz/dal/db"
+	"memogo/biz/dal/repository"
 	"memogo/biz/model/memogo/api"
+	"memogo/biz/service"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -21,7 +25,36 @@ func Register(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	resp := new(api.AuthResp)
+	// 创建 service
+	userRepo := repository.NewUserRepository(db.DB)
+	authService := service.NewAuthService(userRepo)
+
+	// 调用注册服务
+	accessToken, refreshToken, err := authService.Register(req.Username, req.Password)
+	if err != nil {
+		// 根据不同错误返回不同状态码
+		if errors.Is(err, repository.ErrUserAlreadyExists) {
+			c.JSON(consts.StatusBadRequest, &api.AuthResp{
+				Status: 400,
+				Msg:    "用户名已存在",
+			})
+			return
+		}
+		c.JSON(consts.StatusInternalServerError, &api.AuthResp{
+			Status: 500,
+			Msg:    "注册失败: " + err.Error(),
+		})
+		return
+	}
+
+	resp := &api.AuthResp{
+		Status: 200,
+		Msg:    "注册成功",
+		Data: &api.TokenPair{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+		},
+	}
 
 	c.JSON(consts.StatusOK, resp)
 }
