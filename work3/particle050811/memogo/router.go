@@ -3,13 +3,19 @@
 package main
 
 import (
-	"github.com/cloudwego/hertz/pkg/app/server"
-	handler "memogo/biz/handler"
+    "github.com/cloudwego/hertz/pkg/app/server"
+    handler "memogo/biz/handler"
+    api "memogo/biz/handler/memogo/api"
+    mw "memogo/pkg/middleware"
 )
 
 // customizeRegister registers customize routers.
 func customizedRegister(r *server.Hertz) {
-	r.GET("/ping", handler.Ping)
+    r.GET("/ping", handler.Ping)
 
-	// your code ...
+    // 兼容路由别名：支持 ":id" 形式的 PATCH /v1/todos/:id/status
+    // 说明：生成路由已注册 "/v1/todos/{id}/status"，但为避免部分环境下参数匹配差异，额外注册别名。
+    v1 := r.Group("/v1")
+    todos := v1.Group("/todos", mw.JWTMiddleware.MiddlewareFunc())
+    todos.PATCH("/:id/status", api.UpdateTodoStatus)
 }

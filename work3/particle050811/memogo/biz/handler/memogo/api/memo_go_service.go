@@ -10,6 +10,7 @@ import (
     "memogo/biz/model/memogo/api"
     "memogo/biz/service"
     "memogo/pkg/middleware"
+    "strings"
     "time"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -152,95 +153,221 @@ func CreateTodo(ctx context.Context, c *app.RequestContext) {
 // UpdateTodoStatus .
 // @router /v1/todos/{id}/status [PATCH]
 func UpdateTodoStatus(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.UpdateTodoStatusReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
+    var err error
+    var req api.UpdateTodoStatusReq
+    err = c.BindAndValidate(&req)
+    if err != nil {
+        c.String(consts.StatusBadRequest, err.Error())
+        return
+    }
+    // 认证
+    userID, err := middleware.GetUserID(c)
+    if err != nil {
+        c.JSON(consts.StatusUnauthorized, &api.UpdateTodoStatusResp{Status: 401, Msg: "Unauthorized: " + err.Error()})
+        return
+    }
 
-	resp := new(api.UpdateTodoStatusResp)
+    todoRepo := repository.NewTodoRepository(db.DB)
+    todoSvc := service.NewTodoService(todoRepo)
 
-	c.JSON(consts.StatusOK, resp)
+    affected, err := todoSvc.UpdateTodoStatus(userID, uint(req.GetID()), int32(req.GetStatus()))
+    if err != nil {
+        c.JSON(consts.StatusInternalServerError, &api.UpdateTodoStatusResp{Status: 500, Msg: "Update failed: " + err.Error()})
+        return
+    }
+    c.JSON(consts.StatusOK, &api.UpdateTodoStatusResp{Status: 200, Msg: "ok", Data: int32(affected)})
 }
 
 // UpdateAllStatus .
 // @router /v1/todos/status [PATCH]
 func UpdateAllStatus(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.UpdateAllStatusReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
+    var err error
+    var req api.UpdateAllStatusReq
+    err = c.BindAndValidate(&req)
+    if err != nil {
+        c.String(consts.StatusBadRequest, err.Error())
+        return
+    }
+    userID, err := middleware.GetUserID(c)
+    if err != nil {
+        c.JSON(consts.StatusUnauthorized, &api.UpdateAllStatusResp{Status: 401, Msg: "Unauthorized: " + err.Error()})
+        return
+    }
 
-	resp := new(api.UpdateAllStatusResp)
+    todoRepo := repository.NewTodoRepository(db.DB)
+    todoSvc := service.NewTodoService(todoRepo)
 
-	c.JSON(consts.StatusOK, resp)
+    affected, err := todoSvc.UpdateAllStatus(userID, int32(req.GetFromStatus()), int32(req.GetToStatus()))
+    if err != nil {
+        c.JSON(consts.StatusInternalServerError, &api.UpdateAllStatusResp{Status: 500, Msg: "Update failed: " + err.Error()})
+        return
+    }
+    c.JSON(consts.StatusOK, &api.UpdateAllStatusResp{Status: 200, Msg: "ok", Data: int32(affected)})
 }
 
 // ListTodos .
 // @router /v1/todos [GET]
 func ListTodos(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.ListTodosReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
+    var err error
+    var req api.ListTodosReq
+    err = c.BindAndValidate(&req)
+    if err != nil {
+        c.String(consts.StatusBadRequest, err.Error())
+        return
+    }
+    userID, err := middleware.GetUserID(c)
+    if err != nil {
+        c.JSON(consts.StatusUnauthorized, &api.ListTodosResp{Status: 401, Msg: "Unauthorized: " + err.Error()})
+        return
+    }
 
-	resp := new(api.ListTodosResp)
+    statusStr := strings.ToLower(req.GetStatus())
+    page := int(req.GetPage())
+    pageSize := int(req.GetPageSize())
 
-	c.JSON(consts.StatusOK, resp)
+    todoRepo := repository.NewTodoRepository(db.DB)
+    todoSvc := service.NewTodoService(todoRepo)
+
+    items, total, err := todoSvc.ListTodos(userID, statusStr, page, pageSize)
+    if err != nil {
+        c.JSON(consts.StatusInternalServerError, &api.ListTodosResp{Status: 500, Msg: "List failed: " + err.Error()})
+        return
+    }
+
+    apiItems := make([]*api.Todo, 0, len(items))
+    for _, t := range items {
+        at := &api.Todo{
+            ID:        int64(t.ID),
+            Title:     t.Title,
+            Content:   t.Content,
+            View:      int32(t.View),
+            Status:    api.TodoStatus(t.Status),
+            CreatedAt: t.CreatedAt.Unix(),
+        }
+        if t.StartTime != nil { at.StartTime = t.StartTime.Unix() }
+        if t.EndTime != nil { at.EndTime = t.EndTime.Unix() }
+        if t.DueTime != nil { at.DueTime = t.DueTime.Unix() }
+        apiItems = append(apiItems, at)
+    }
+
+    c.JSON(consts.StatusOK, &api.ListTodosResp{
+        Status: 200,
+        Msg:    "ok",
+        Data: &api.ItemsTodoData{
+            Items: apiItems,
+            Total: total,
+        },
+    })
 }
 
 // SearchTodos .
 // @router /v1/todos/search [GET]
 func SearchTodos(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.SearchTodosReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
+    var err error
+    var req api.SearchTodosReq
+    err = c.BindAndValidate(&req)
+    if err != nil {
+        c.String(consts.StatusBadRequest, err.Error())
+        return
+    }
+    userID, err := middleware.GetUserID(c)
+    if err != nil {
+        c.JSON(consts.StatusUnauthorized, &api.SearchTodosResp{Status: 401, Msg: "Unauthorized: " + err.Error()})
+        return
+    }
 
-	resp := new(api.SearchTodosResp)
+    q := req.GetQ()
+    page := int(req.GetPage())
+    pageSize := int(req.GetPageSize())
 
-	c.JSON(consts.StatusOK, resp)
+    todoRepo := repository.NewTodoRepository(db.DB)
+    todoSvc := service.NewTodoService(todoRepo)
+    items, total, err := todoSvc.SearchTodos(userID, q, page, pageSize)
+    if err != nil {
+        c.JSON(consts.StatusInternalServerError, &api.SearchTodosResp{Status: 500, Msg: "Search failed: " + err.Error()})
+        return
+    }
+
+    apiItems := make([]*api.Todo, 0, len(items))
+    for _, t := range items {
+        at := &api.Todo{
+            ID:        int64(t.ID),
+            Title:     t.Title,
+            Content:   t.Content,
+            View:      int32(t.View),
+            Status:    api.TodoStatus(t.Status),
+            CreatedAt: t.CreatedAt.Unix(),
+        }
+        if t.StartTime != nil { at.StartTime = t.StartTime.Unix() }
+        if t.EndTime != nil { at.EndTime = t.EndTime.Unix() }
+        if t.DueTime != nil { at.DueTime = t.DueTime.Unix() }
+        apiItems = append(apiItems, at)
+    }
+
+    c.JSON(consts.StatusOK, &api.SearchTodosResp{
+        Status: 200,
+        Msg:    "ok",
+        Data: &api.ItemsTodoData{
+            Items: apiItems,
+            Total: total,
+        },
+    })
 }
 
 // DeleteOne .
 // @router /v1/todos/{id} [DELETE]
 func DeleteOne(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.DeleteOneReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
+    var err error
+    var req api.DeleteOneReq
+    err = c.BindAndValidate(&req)
+    if err != nil {
+        c.String(consts.StatusBadRequest, err.Error())
+        return
+    }
+    userID, err := middleware.GetUserID(c)
+    if err != nil {
+        c.JSON(consts.StatusUnauthorized, &api.DeleteResp{Status: 401, Msg: "Unauthorized: " + err.Error()})
+        return
+    }
 
-	resp := new(api.DeleteResp)
-
-	c.JSON(consts.StatusOK, resp)
+    todoRepo := repository.NewTodoRepository(db.DB)
+    todoSvc := service.NewTodoService(todoRepo)
+    affected, err := todoSvc.DeleteOne(userID, uint(req.GetID()))
+    if err != nil {
+        c.JSON(consts.StatusInternalServerError, &api.DeleteResp{Status: 500, Msg: "Delete failed: " + err.Error()})
+        return
+    }
+    c.JSON(consts.StatusOK, &api.DeleteResp{Status: 200, Msg: "ok", Data: int32(affected)})
 }
 
 // DeleteByScope .
 // @router /v1/todos [DELETE]
 func DeleteByScope(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.DeleteByScopeReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
+    var err error
+    var req api.DeleteByScopeReq
+    err = c.BindAndValidate(&req)
+    if err != nil {
+        c.String(consts.StatusBadRequest, err.Error())
+        return
+    }
+    userID, err := middleware.GetUserID(c)
+    if err != nil {
+        c.JSON(consts.StatusUnauthorized, &api.DeleteResp{Status: 401, Msg: "Unauthorized: " + err.Error()})
+        return
+    }
 
-	resp := new(api.DeleteResp)
+    scope := strings.ToLower(req.GetScope())
+    if scope != "done" && scope != "todo" && scope != "all" {
+        c.JSON(consts.StatusBadRequest, &api.DeleteResp{Status: 400, Msg: "invalid scope"})
+        return
+    }
 
-	c.JSON(consts.StatusOK, resp)
+    todoRepo := repository.NewTodoRepository(db.DB)
+    todoSvc := service.NewTodoService(todoRepo)
+    affected, err := todoSvc.DeleteByScope(userID, scope)
+    if err != nil {
+        c.JSON(consts.StatusInternalServerError, &api.DeleteResp{Status: 500, Msg: "Delete failed: " + err.Error()})
+        return
+    }
+    c.JSON(consts.StatusOK, &api.DeleteResp{Status: 200, Msg: "ok", Data: int32(affected)})
 }

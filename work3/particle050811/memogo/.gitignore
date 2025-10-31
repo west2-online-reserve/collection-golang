@@ -47,3 +47,4 @@ dumped_hertz_remote_config.json
 
 # 可执行文件（构建产物，不应提交）
 /memogo
+/testclient

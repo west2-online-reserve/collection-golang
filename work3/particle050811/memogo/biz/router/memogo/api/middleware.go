@@ -39,8 +39,8 @@ func _deleteoneMw() []app.HandlerFunc {
 }
 
 func _searchtodosMw() []app.HandlerFunc {
-	// your code...
-	return nil
+    // 需要 JWT 认证（组已包含，此处保持一致）
+    return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
 }
 
 func _todos0Mw() []app.HandlerFunc {
@@ -54,18 +54,18 @@ func _createtodoMw() []app.HandlerFunc {
 }
 
 func _updateallstatusMw() []app.HandlerFunc {
-	// your code...
-	return nil
+    // 需要 JWT 认证
+    return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
 }
 
 func __7bid_7dMw() []app.HandlerFunc {
-	// your code...
-	return nil
+    // 需要 JWT 认证
+    return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
 }
 
 func _updatetodostatusMw() []app.HandlerFunc {
-	// your code...
-	return nil
+    // 需要 JWT 认证
+    return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
 }
 
 func _authMw() []app.HandlerFunc {
