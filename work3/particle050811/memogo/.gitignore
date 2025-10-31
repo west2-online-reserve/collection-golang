@@ -41,3 +41,9 @@ dumped_hertz_remote_config.json
 *.sqlite3
 *.db-shm
 *.db-wal
+
+# Go 本地构建缓存（不要提交）
+.gocache/
+
+# 可执行文件（构建产物，不应提交）
+/memogo

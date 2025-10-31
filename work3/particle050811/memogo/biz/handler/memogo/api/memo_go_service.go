@@ -3,13 +3,14 @@
 package api
 
 import (
-	"context"
-	"errors"
-	"memogo/biz/dal/db"
-	"memogo/biz/dal/repository"
-	"memogo/biz/model/memogo/api"
-	"memogo/biz/service"
-	"memogo/pkg/middleware"
+    "context"
+    "errors"
+    "memogo/biz/dal/db"
+    "memogo/biz/dal/repository"
+    "memogo/biz/model/memogo/api"
+    "memogo/biz/service"
+    "memogo/pkg/middleware"
+    "time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -77,28 +78,75 @@ func RefreshToken(ctx context.Context, c *app.RequestContext) {
 // CreateTodo .
 // @router /v1/todos [POST]
 func CreateTodo(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.CreateTodoReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
+    var err error
+    var req api.CreateTodoReq
+    err = c.BindAndValidate(&req)
+    if err != nil {
+        c.String(consts.StatusBadRequest, err.Error())
+        return
+    }
 
-	// 从 JWT 中间件获取用户 ID
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		c.JSON(consts.StatusUnauthorized, &api.CreateTodoResp{
-			Status: 401,
-			Msg:    "Unauthorized: " + err.Error(),
-		})
-		return
-	}
+    // 从 JWT 中间件获取用户 ID
+    userID, err := middleware.GetUserID(c)
+    if err != nil {
+        c.JSON(consts.StatusUnauthorized, &api.CreateTodoResp{
+            Status: 401,
+            Msg:    "Unauthorized: " + err.Error(),
+        })
+        return
+    }
 
-	// TODO: 使用 userID 创建 todo
-	// 这里只是演示如何获取用户信息
-	// 临时返回，演示获取到的用户ID
-	c.String(consts.StatusOK, "User ID: %d, Title: %s", userID, req.Title)
+    // 组装服务并创建 Todo
+    todoRepo := repository.NewTodoRepository(db.DB)
+    todoSvc := service.NewTodoService(todoRepo)
+
+    // 可选时间字段转换（秒 → time.Time）
+    var startPtr, duePtr *time.Time
+    if req.IsSetStartTime() {
+        t := time.Unix(req.GetStartTime(), 0)
+        startPtr = &t
+    }
+    if req.IsSetDueTime() {
+        t := time.Unix(req.GetDueTime(), 0)
+        duePtr = &t
+    }
+
+    todo, err := todoSvc.Create(userID, req.GetTitle(), req.GetContent(), startPtr, duePtr)
+    if err != nil {
+        // 参数错误 → 400，其它错误 → 500
+        status := consts.StatusInternalServerError
+        msg := "Create todo failed: " + err.Error()
+        if errors.Is(err, service.ErrTitleRequired) || errors.Is(err, service.ErrContentRequired) {
+            status = consts.StatusBadRequest
+        }
+        c.JSON(status, &api.CreateTodoResp{Status: int32(status), Msg: msg})
+        return
+    }
+
+    // 转为 API 模型
+    respTodo := &api.Todo{
+        ID:        int64(todo.ID),
+        Title:     todo.Title,
+        Content:   todo.Content,
+        View:      int32(todo.View),
+        Status:    api.TodoStatus(todo.Status),
+        CreatedAt: todo.CreatedAt.Unix(),
+    }
+    if todo.StartTime != nil {
+        respTodo.StartTime = todo.StartTime.Unix()
+    }
+    if todo.EndTime != nil {
+        respTodo.EndTime = todo.EndTime.Unix()
+    }
+    if todo.DueTime != nil {
+        respTodo.DueTime = todo.DueTime.Unix()
+    }
+
+    c.JSON(consts.StatusOK, &api.CreateTodoResp{
+        Status: 200,
+        Msg:    "ok",
+        Data:   respTodo,
+    })
 }
 
 // UpdateTodoStatus .

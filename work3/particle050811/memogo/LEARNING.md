@@ -570,4 +570,54 @@ JWT 签名就像快递的防伪封条：
 
 ---
 
+## 2025-10-31 JWT vs Cookie 认证选择
+
+### Q: 为什么项目里使用 JWT（签名，Authorization 头携带），而很多网站用 Cookie 区分用户？
+
+**结论**：本项目是面向多端的无状态 REST API，更适合使用 JWT；传统主要面向浏览器的站点更适合 Cookie + 服务端会话。
+
+**为什么本项目用 JWT**
+- 无状态、易水平扩展：不依赖服务端会话存储或粘滞会话。
+- 多端/跨域友好：移动端、Postman/Apifox、SPA 都可直接用 `Authorization: Bearer <token>`。
+- 降低 CSRF 风险：令牌不随浏览器自动携带，默认不受第三方站点跨站请求影响（仍需防 XSS）。
+- 微服务友好：下游服务可独立校验签名，无需回源查会话。
+
+**为什么很多网站用 Cookie**
+- 浏览器原生支持：自动携带，配合 `HttpOnly/SameSite/Secure` 易控管。
+- 撤销/风控强：服务端集中失效会话即可（踢人、权限变更即时生效）。
+- SEO/SSR/后台系统：以浏览器为主的产品形态更贴合会话模型。
+
+**对比要点**
+- 存储位置：JWT 在客户端（Header/Storage）；Cookie 会话在服务端（内存/Redis）+ 客户端保存会话 ID。
+- 安全关注：JWT 关注泄露与刷新机制；Cookie 关注 CSRF（配合 SameSite/CSRF Token）。
+- 撤销与权限变更：JWT 需黑名单或短期+刷新；Cookie 服务器集中失效即可。
+- 跨域：JWT（Header）更直接；Cookie 需处理 `CORS` 与 `SameSite=None; Secure`。
+
+**你提到“用 username 区分用户”**
+- 建议使用不可变的唯一标识 `user_id` 作为主身份声明；`username` 仅用于展示或冗余。
+- 切记不要把敏感信息放入 JWT；全程使用 HTTPS 传输。
+
+**代码/请求示例**
+```bash
+# 使用 JWT（推荐本项目）
+curl -H "Authorization: Bearer <ACCESS_TOKEN>" \
+     "http://localhost:8080/v1/todos?page=1&page_size=10"
+
+# 使用 Cookie 会话（典型网站）
+curl -H "Cookie: sid=abcdef123456; Path=/; HttpOnly; Secure" \
+     "http://example.com/dashboard"
+```
+
+**实践建议**
+- 当前项目继续用 JWT：统一从 `Authorization` 头读取并在中间件校验；令牌建议短期+刷新，配合黑名单（如 Redis）。
+- 主要面向浏览器时，可采用“JWT 装进 HttpOnly Cookie”的混合方案，降低 XSS 窃取风险，同时保持无状态验证。
+- 如需切换到 Cookie 会话，我可以协助改造：新增会话存储、CSRF 防护、SameSite 策略与登录/登出流程。
+
+**延伸阅读**
+- JWT vs Session 深度对比：https://auth0.com/blog/session-vs-token-based-authentication/
+- OWASP CSRF 防护：https://owasp.org/www-community/attacks/csrf
+- CORS 与 Cookie 的 SameSite：https://web.dev/articles/samesite-cookies-explained
+
+---
+
 *本笔记持续更新中...*
