@@ -3,7 +3,9 @@
 package main
 
 import (
+	"log"
 	"memogo/biz/dal/db"
+	"memogo/pkg/middleware"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
@@ -11,6 +13,13 @@ import (
 func main() {
 	// 初始化数据库
 	db.Init()
+
+	// 初始化 JWT 中间件
+	var err error
+	middleware.JWTMiddleware, err = middleware.InitJWTMiddleware()
+	if err != nil {
+		log.Fatal("Failed to initialize JWT middleware: ", err)
+	}
 
 	h := server.Default()
 

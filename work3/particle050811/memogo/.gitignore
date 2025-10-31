@@ -34,4 +34,10 @@ _testmain.go
 /output
 *.local.yml
 dumped_hertz_remote_config.json
-		  
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal

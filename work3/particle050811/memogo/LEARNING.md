@@ -189,4 +189,385 @@ Accept-Language: zh-CN
 
 ---
 
+## 2025-10-30 JWT 认证与 Hertz 中间件
+
+### Q1: LoginHandler 为何一行能完成登录？它封装了什么？
+
+**问题代码**：
+```go
+func Login(ctx context.Context, c *app.RequestContext) {
+    middleware.JWTMiddleware.LoginHandler(ctx, c)  // ← 只有一行！
+}
+```
+
+**解答**：`LoginHandler` 不是我们写的函数，是 **Hertz JWT 中间件提供的**。我们做的是配置中间件，告诉它如何处理登录。
+
+**配置的 4 个关键回调函数**（`pkg/middleware/jwt.go`）：
+
+| 函数 | 作用 | 类比 |
+|------|------|------|
+| **Authenticator** | 验证用户名密码 | 你告诉快递员："这样验证收件人" |
+| **PayloadFunc** | 构建 JWT 内容 | 你告诉快递员："包裹里放这些信息" |
+| **LoginResponse** | 返回成功响应 | 你告诉快递员："成功时这样回复" |
+| **Unauthorized** | 返回错误响应 | 你告诉快递员："失败时这样回复" |
+
+**LoginHandler 的执行流程**：
+```
+LoginHandler 内部自动执行:
+┌────────────────────────────────────┐
+│ 1. 调用 Authenticator (我们配置的) │
+│    - 解析用户名密码                 │
+│    - 验证凭证                       │
+│    - 返回用户信息                   │
+├────────────────────────────────────┤
+│ 2. 调用 PayloadFunc (我们配置的)   │
+│    - 将用户信息转为 JWT Claims     │
+├────────────────────────────────────┤
+│ 3. 生成 JWT Token (中间件自动)     │
+│    - 使用 Key 签名                  │
+│    - 设置过期时间                   │
+├────────────────────────────────────┤
+│ 4. 调用 LoginResponse (我们配置的) │
+│    - 返回 JSON 响应                 │
+└────────────────────────────────────┘
+```
+
+**核心思想**：这是**配置驱动**的设计模式，你配置规则，框架执行流程。
+
+---
+
+### Q2: Token 哪里来的？为何暂时使用相同的 token？
+
+**Token 是 Hertz JWT 中间件自动生成的！**
+
+看 `LoginResponse` 的函数签名：
+```go
+LoginResponse: func(ctx context.Context, c *app.RequestContext,
+                     code int, token string, expire time.Time)
+                              ↑
+                        中间件传给我们的！
+```
+
+**标准的双令牌机制应该是**：
+
+| Token 类型 | 有效期 | 用途 |
+|-----------|--------|------|
+| **access_token** | 短期（15分钟） | API 调用 |
+| **refresh_token** | 长期（7天） | 刷新 access_token |
+
+**问题**：中间件只生成一个 token（根据 `Timeout: 15 * time.Minute`），所以暂时返回了两次。
+
+**解决方案**：
+
+```go
+// 方案 A：单令牌模式（推荐简单场景）
+LoginResponse: func(..., token string, expire time.Time) {
+    c.JSON(200, utils.H{
+        "access_token": token,  // 只返回一个
+        "expires_at": expire.Unix(),
+    })
+}
+
+// 方案 B：真双令牌（手动生成 refresh_token）
+LoginResponse: func(..., token string, expire time.Time) {
+    claims := hertzJWT.ExtractClaims(ctx, c)
+    userID := uint(claims["user_id"].(float64))
+
+    // 使用自己的 jwt 包生成长期 token
+    _, refreshToken, _ := jwt.GenerateTokenPair(userID, username)
+
+    c.JSON(200, utils.H{
+        "access_token": token,        // 15分钟
+        "refresh_token": refreshToken, // 7天
+    })
+}
+```
+
+---
+
+### Q3: 为何中间件不默认支持双 token？
+
+**4 个核心原因**：
+
+1. **JWT 标准没有定义双令牌**
+   - RFC 7519 只定义了如何创建/验证 token
+   - 双令牌是**安全最佳实践**，不是标准
+
+2. **双令牌机制有多种实现方式**
+   - 不同应用需求完全不同（过期时间、存储方式、撤销机制）
+   - 强制一种实现会限制灵活性
+
+3. **Refresh Token 通常需要持久化**
+   - Access Token: 短期、无状态、不需要存储 ✓
+   - Refresh Token: 长期、需要可撤销、必须存储 ✗
+   - 中间件无法假设你用什么数据库！
+
+4. **框架设计哲学：提供机制，不强制策略**
+   - ✅ 提供生成/验证/刷新 token 的能力
+   - ❌ 不强制如何使用这些能力
+
+**Hertz JWT 的变相双令牌方案**：
+
+```go
+Timeout:    15 * time.Minute,     // Token 15分钟后过期
+MaxRefresh: 7 * 24 * time.Hour,   // 但在 7 天内可刷新
+```
+
+**工作原理**：
+```
+生成的 token 包含两个时间戳:
+{
+  "exp": 1234567890,      // 过期时间（15分钟后）
+  "orig_iat": 1234567000  // 原始签发时间
+}
+
+刷新流程:
+1. Token 15分钟后过期
+2. 但在 7 天内，可以用这个"过期"的 token 换新 token
+3. 超过 7 天，必须重新登录
+```
+
+**结论**：对于待办应用，Hertz 的方案已经够用！
+
+---
+
+### Q4: Hertz token 是存到内存里的吗？服务端重启会退出登录吗？
+
+**关键结论：JWT Token 不存储在服务端！服务端重启不影响登录！**
+
+**JWT 的无状态特性**：
+
+```
+登录流程:
+┌─────────┐                    ┌─────────┐
+│  客户端  │ ─(用户名密码)────→ │ 服务端   │
+│         │                    │         │
+│         │ ←──(JWT token)──── │ 生成token│
+│ 存储到   │                    │ 不保存！ │
+│ 本地     │                    └─────────┘
+└─────────┘
+
+后续请求:
+┌─────────┐                    ┌─────────┐
+│  客户端  │ ─(请求+token)────→ │ 服务端   │
+│         │                    │         │
+│ 从本地   │                    │ 1.验证签名│
+│ 取token  │                    │ 2.检查过期│
+│         │                    │ 3.提取信息│
+│         │ ←───(响应)──────── │ 不查数据库│
+└─────────┘                    └─────────┘
+```
+
+**对比不同存储方式**：
+
+| 存储方式 | Token 存哪里？ | 服务端重启影响？ |
+|---------|--------------|----------------|
+| **JWT** | 客户端（浏览器/App） | ❌ 不影响 |
+| **Session** | 服务端内存/Redis | ✅ 影响 |
+
+**为什么服务端不需要存储？**
+
+JWT token 包含了所有需要的信息：
+```json
+{
+  "user_id": 2,
+  "username": "logintest",
+  "exp": 1761837205,  // 过期时间
+  "iat": 1761836305   // 签发时间
+}
+```
+
+服务端验证时只需要：
+1. 验证签名（token 没被篡改）
+2. 检查过期时间（exp < now）
+3. 提取用户信息（user_id）
+
+**不需要查数据库！不需要查 Redis！**
+
+---
+
+### Q5: JWT 是如何防篡改的？是用 RSA 加密吗？
+
+**关键概念：JWT 不是加密，是签名！**
+
+**JWT 的三部分结构**（用 `.` 分隔）：
+
+```
+eyJhbGc...       .  eyJ1c2Vy...    .  aePaXs5iQ...
+   ↓                    ↓                  ↓
+ Header            Payload             Signature
+（头部）            （载荷）             （签名）
+```
+
+**1. Header 和 Payload - Base64 编码（不加密）**
+
+```json
+// Header
+{"alg":"HS256","typ":"JWT"}
+
+// Payload
+{"user_id":2,"username":"logintest","exp":1761837205}
+```
+
+⚠️ **任何人都能解码！不要在 token 里放敏感信息！**
+
+**2. Signature - 这是防篡改的关键**
+
+我们使用的是 **HS256**（对称加密）：
+
+```javascript
+signature = HMAC-SHA256(
+  base64(header) + "." + base64(payload),
+  secret_key  // 服务端保密的密钥
+)
+```
+
+**两种签名算法对比**：
+
+| 算法 | 类型 | 密钥 | 适用场景 |
+|------|------|------|---------|
+| **HS256** | 对称加密 | 一个密钥 | 单体应用 ✅ |
+| **RS256** | 非对称加密（RSA） | 公钥+私钥 | 微服务架构 |
+
+**HMAC-SHA256 算法原理**：
+
+```
+输入: Header.Payload (明文)
+密钥: memogo-default-secret...
+         ↓
+    HMAC-SHA256 算法
+         ↓
+    32字节的签名
+
+特性:
+✓ 单向：无法从签名推导出密钥
+✓ 确定性：相同输入+密钥 = 相同签名
+✓ 雪崩效应：输入改1位，签名完全不同
+```
+
+**防篡改验证流程**：
+
+```
+客户端请求:
+Header: Authorization: Bearer eyJhbGc...
+
+服务端验证:
+┌────────────────────────────────────┐
+│ 1. 分割 Token                      │
+│    header, payload, signature      │
+├────────────────────────────────────┤
+│ 2. 重新计算签名                    │
+│    new_sig = HMAC(header.payload,  │
+│                   secret_key)      │
+├────────────────────────────────────┤
+│ 3. 对比签名                        │
+│    if new_sig != signature:        │
+│        return "Invalid Token" ✗    │
+├────────────────────────────────────┤
+│ 4. 检查过期时间                    │
+│    if exp < now():                 │
+│        return "Token Expired" ✗    │
+├────────────────────────────────────┤
+│ 5. 提取用户信息 ✓                  │
+└────────────────────────────────────┘
+```
+
+**为什么无法篡改？**
+
+| 攻击方式 | 能成功吗？ | 原因 |
+|---------|-----------|------|
+| 修改 user_id | ❌ | 签名不匹配 |
+| 修改过期时间 | ❌ | 签名不匹配 |
+| 伪造签名 | ❌ | 不知道密钥，暴力破解需要几十亿年 |
+| 重放旧 token | ✅ | **需要额外防护**（黑名单） |
+| 中间人攻击 | ✅ | **必须使用 HTTPS** |
+
+**安全最佳实践**：
+
+```go
+// 1. 密钥必须保密
+func GetJWTSecret() []byte {
+    secret := os.Getenv("JWT_SECRET")  // ✓ 从环境变量
+    if secret == "" {
+        // ✗ 生产环境必须改！
+        secret = "memogo-default-secret-change-in-production"
+    }
+    return []byte(secret)
+}
+
+// 2. Payload 不放敏感信息
+// ✗ 错误：{"password": "123456"}
+// ✓ 正确：{"user_id": 2, "username": "alice"}
+
+// 3. 必须使用 HTTPS
+// 防止中间人截获 token
+
+// 4. 设置合理的过期时间
+Timeout: 15 * time.Minute  // 不要设置太长
+```
+
+**类比总结**：
+
+JWT 签名就像快递的防伪封条：
+- 包裹内容（Payload）：任何人都能看
+- 防伪封条（Signature）：只有邮局（服务端）能验证真伪
+- 如果有人打开包裹修改内容，封条会破损（签名不匹配），邮局会拒收
+
+**JWT 安全性依赖于：密钥保密 + HTTPS + 合理的过期时间**
+
+---
+
+## 延伸阅读
+
+- JWT 官方规范 RFC 7519: https://datatracker.ietf.org/doc/html/rfc7519
+- JWT.io 在线调试工具: https://jwt.io/
+- Hertz JWT 中间件文档: https://www.cloudwego.io/zh/docs/hertz/tutorials/basic-feature/middleware/jwt/
+- OWASP JWT 安全最佳实践: https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html
+- HMAC-SHA256 算法详解: https://en.wikipedia.org/wiki/HMAC
+
+---
+
+## 2025-10-31 路由中间件生成规则
+
+### Q: “_deletebyscopeMw() 是不是根据这个事务模块生成的？”
+
+> // 事务模块：删（按 scope 删除：done/todo/all）
+> DeleteResp DeleteByScope(1: DeleteByScopeReq req)
+>   (api.delete = "/v1/todos")
+
+**结论**：是的，`_deletebyscopeMw()` 由 hz 代码生成器依据 IDL 中的方法 `DeleteByScope` 及其 HTTP 注解 `(api.delete = "/v1/todos")` 生成，用于给该具体路由挂载中间件。
+
+**证据与映射**：
+- IDL 方法与注解（idl/memogo.thrift）
+  ```thrift
+  DeleteResp DeleteByScope(1: DeleteByScopeReq req)
+    (api.delete = "/v1/todos")
+  ```
+- 生成的路由注册（biz/router/memogo/api/memogo.go:22）
+  ```go
+  _v1.DELETE("/todos", append(_deletebyscopeMw(), api.DeleteByScope)...) // 调用中间件装配函数
+  ```
+- 生成的中间件函数（biz/router/memogo/api/middleware.go:21）
+  ```go
+  func _deletebyscopeMw() []app.HandlerFunc {
+      // 需要 JWT 认证
+      return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
+  }
+  ```
+
+**命名规则速记**：
+- 路由级：`_` + `方法名小写` + `Mw` → `DeleteByScope` → `_deletebyscopeMw`
+- 分组级：路径片段生成 → `/v1` → `_v1Mw()`；`/v1/todos` → `_todosMw()`；重复分组追加序号 → `_todos0Mw()`
+- 路径参数：`/{id}` 采用占位编码 → `__7bid_7dMw()`（避免非法标识符）
+
+**实际场景**：
+- 需要对“按范围删除”接口加鉴权：在 `_deletebyscopeMw()` 返回 JWT 中间件即可；
+- 若整个 `/v1/todos` 组都需鉴权：在 `_todosMw()` 返回 JWT，则其子路由（含 DeleteByScope）自动继承，无需在 `_deletebyscopeMw()` 重复配置。
+
+**延伸阅读**：
+- Hertz hz 代码生成与路由绑定: https://www.cloudwego.io/docs/hertz/tutorials/tool/hz/
+- hz 路由/注解使用: https://www.cloudwego.io/docs/hertz/tutorials/tool/hz/router
+
+---
+
 *本笔记持续更新中...*

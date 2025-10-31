@@ -9,6 +9,7 @@ import (
 	"memogo/biz/dal/repository"
 	"memogo/biz/model/memogo/api"
 	"memogo/biz/service"
+	"memogo/pkg/middleware"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -36,20 +37,20 @@ func Register(ctx context.Context, c *app.RequestContext) {
 		if errors.Is(err, repository.ErrUserAlreadyExists) {
 			c.JSON(consts.StatusBadRequest, &api.AuthResp{
 				Status: 400,
-				Msg:    "用户名已存在",
+				Msg:    "Username already exists",
 			})
 			return
 		}
 		c.JSON(consts.StatusInternalServerError, &api.AuthResp{
 			Status: 500,
-			Msg:    "注册失败: " + err.Error(),
+			Msg:    "Registration failed: " + err.Error(),
 		})
 		return
 	}
 
 	resp := &api.AuthResp{
 		Status: 200,
-		Msg:    "注册成功",
+		Msg:    "Registration successful",
 		Data: &api.TokenPair{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
@@ -62,33 +63,15 @@ func Register(ctx context.Context, c *app.RequestContext) {
 // Login .
 // @router /v1/auth/login [POST]
 func Login(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.LoginReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
-
-	resp := new(api.AuthResp)
-
-	c.JSON(consts.StatusOK, resp)
+	// 使用 Hertz JWT 中间件的 LoginHandler
+	middleware.JWTMiddleware.LoginHandler(ctx, c)
 }
 
 // RefreshToken .
 // @router /v1/auth/refresh [POST]
 func RefreshToken(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req api.RefreshReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
-	}
-
-	resp := new(api.AuthResp)
-
-	c.JSON(consts.StatusOK, resp)
+	// 使用 Hertz JWT 中间件的 RefreshHandler
+	middleware.JWTMiddleware.RefreshHandler(ctx, c)
 }
 
 // CreateTodo .
@@ -102,9 +85,20 @@ func CreateTodo(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	resp := new(api.CreateTodoResp)
+	// 从 JWT 中间件获取用户 ID
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		c.JSON(consts.StatusUnauthorized, &api.CreateTodoResp{
+			Status: 401,
+			Msg:    "Unauthorized: " + err.Error(),
+		})
+		return
+	}
 
-	c.JSON(consts.StatusOK, resp)
+	// TODO: 使用 userID 创建 todo
+	// 这里只是演示如何获取用户信息
+	// 临时返回，演示获取到的用户ID
+	c.String(consts.StatusOK, "User ID: %d, Title: %s", userID, req.Title)
 }
 
 // UpdateTodoStatus .

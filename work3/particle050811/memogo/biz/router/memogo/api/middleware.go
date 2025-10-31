@@ -3,6 +3,8 @@
 package api
 
 import (
+	"memogo/pkg/middleware"
+
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
@@ -17,18 +19,18 @@ func _v1Mw() []app.HandlerFunc {
 }
 
 func _deletebyscopeMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	// 需要 JWT 认证
+	return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
 }
 
 func _todosMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	// 需要 JWT 认证
+	return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
 }
 
 func _listtodosMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	// 需要 JWT 认证
+	return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
 }
 
 func _deleteoneMw() []app.HandlerFunc {
@@ -47,8 +49,8 @@ func _todos0Mw() []app.HandlerFunc {
 }
 
 func _createtodoMw() []app.HandlerFunc {
-	// your code...
-	return nil
+	// 需要 JWT 认证
+	return []app.HandlerFunc{middleware.JWTMiddleware.MiddlewareFunc()}
 }
 
 func _updateallstatusMw() []app.HandlerFunc {
