@@ -229,6 +229,25 @@ func main() {
 	}
 	fmt.Println("Delete by scope done+todo ok")
 
+	// 11) 测试单条删除 - 重新创建一条待办事项并删除
+	fmt.Println("\n--- 测试单条删除 ---")
+	var singleTodoResp CreateTodoResp
+	singleReq := CreateTodoReq{Title: "测试单条删除", Content: "这条待办事项将被删除"}
+	if err := doJSON(ctx, httpc, http.MethodPost, createURL, tp.AccessToken, singleReq, &singleTodoResp); err != nil {
+		fmt.Fprintln(os.Stderr, "Create single todo for delete test failed:", err)
+		os.Exit(1)
+	}
+	fmt.Println("Created single todo for delete test, ID:", singleTodoResp.Data.ID)
+
+	// 删除单条
+	deleteOneURL := fmt.Sprintf("%s/v1/todos/%d", *base, singleTodoResp.Data.ID)
+	fmt.Println("Deleting single todo via:", deleteOneURL)
+	if err := doJSON(ctx, httpc, http.MethodDelete, deleteOneURL, tp.AccessToken, nil, &delEnv); err != nil {
+		fmt.Fprintln(os.Stderr, "Delete single todo failed:", err)
+		os.Exit(1)
+	}
+	fmt.Println("Delete single todo ok")
+
 	fmt.Println("Scenario completed successfully.")
 }
 

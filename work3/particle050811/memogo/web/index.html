@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MemoGo - 备忘录</title>
+  <style>
+    :root{
+      --bg:#0f172a; --panel:#0b1220; --muted:#94a3b8; --ink:#e5e7eb; --border:#1f2a3a;
+      --brand:#22c55e; --brand-2:#16a34a; --danger:#ef4444; --warn:#f59e0b;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    header{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);background:#091022;position:sticky;top:0;z-index:10}
+    header .brand{font-weight:700}
+    header .fill{flex:1}
+    header input[type=search]{width:320px;max-width:50vw;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#0b152c;color:var(--ink)}
+    header .tabs{display:flex;gap:6px}
+    .tab{padding:6px 10px;border-radius:999px;border:1px solid var(--border);cursor:pointer;color:var(--muted)}
+    .tab.active{background:var(--brand-2);border-color:var(--brand);color:white}
+    .btn{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#132033;color:var(--ink);cursor:pointer}
+    .btn.primary{background:var(--brand-2);border-color:var(--brand);color:white}
+    .btn.danger{background:#3b0e12;border-color:#661a1f;color:#fca5a5}
+    main{display:grid;grid-template-columns:360px 1fr;gap:14px;padding:14px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:12px}
+    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px}
+    .card .body{padding:12px 14px}
+    label{display:block;margin-top:10px;margin-bottom:6px;color:var(--muted)}
+    input,textarea,select{width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:#0b152c;color:var(--ink)}
+    textarea{min-height:86px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .list{display:grid;gap:10px}
+    .todo{border:1px solid var(--border);border-radius:12px;padding:12px;background:#0b1220}
+    .todo .head{display:flex;gap:10px;align-items:center}
+    .todo .title{font-weight:600}
+    .badge{font-size:12px;border:1px solid var(--border);border-radius:999px;padding:2px 8px;color:#93c5fd;background:#0b1933}
+    .badge.done{color:#86efac;background:#0a2d1a}
+    .meta{color:var(--muted);font-size:12px;margin-top:4px}
+    .todo .ops{display:flex;gap:8px;margin-top:10px}
+    .empty{padding:18px;border:1px dashed var(--border);border-radius:12px;color:var(--muted)}
+    footer{display:flex;align-items:center;gap:8px;margin-top:12px}
+    .page{padding:6px 10px;border:1px solid var(--border);background:#0b152c;border-radius:8px;color:var(--ink);cursor:pointer}
+    .login-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center}
+    .login{width:420px;max-width:92vw;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px}
+    .toast{position:fixed;right:14px;bottom:14px;background:#0b152c;border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:none}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">MemoGo</div>
+    <div class="tabs">
+      <div class="tab" data-status="all">全部</div>
+      <div class="tab" data-status="todo">待办</div>
+      <div class="tab" data-status="done">完成</div>
+    </div>
+    <div class="fill"></div>
+    <input id="search" type="search" placeholder="搜索标题或内容…" />
+    <button class="btn" id="btnSearch">搜索</button>
+    <div class="fill"></div>
+    <span id="who" style="color:#a7f3d0"></span>
+    <button class="btn" id="btnRefresh">刷新令牌</button>
+    <button class="btn" id="btnLogout">退出</button>
+  </header>
+
+  <main>
+    <section class="card">
+      <h3>新建备忘</h3>
+      <div class="body">
+        <label>标题</label>
+        <input id="title" placeholder="例如：写周报" />
+        <label>内容</label>
+        <textarea id="content" placeholder="要点、链接或清单…"></textarea>
+        <div class="row">
+          <div>
+            <label>开始时间（unix 秒，可空）</label>
+            <input id="start" placeholder="可留空" />
+          </div>
+          <div>
+            <label>截止时间（unix 秒，可空）</label>
+            <input id="due" placeholder="可留空" />
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <button class="btn primary" id="btnCreate">添加</button>
+          <button class="btn" id="btnClear">清空</button>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:12px 0" />
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="btnBulkDone">将所有 TODO 标记为 DONE</button>
+          <button class="btn" id="btnBulkTodo">将所有 DONE 标记为 TODO</button>
+          <button class="btn danger" id="btnDelDone">删除所有 DONE</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="grid-column:2/3">
+      <h3>我的备忘</h3>
+      <div class="body">
+        <div id="list" class="list"></div>
+        <footer>
+          <button class="page" id="prev">上一页</button>
+          <span id="pagerInfo" style="color:var(--muted)"></span>
+          <button class="page" id="next">下一页</button>
+        </footer>
+      </div>
+    </section>
+  </main>
+
+  <div class="login-mask" id="loginMask">
+    <div class="login">
+      <h3 style="margin:0 0 8px 0">登录 / 注册</h3>
+      <label>用户名</label>
+      <input id="authUser" />
+      <label>密码</label>
+      <input id="authPass" type="password" />
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn primary" id="btnLogin">登录</button>
+        <button class="btn" id="btnRegister">注册</button>
+      </div>
+      <p style="color:var(--muted);margin-top:10px">首次使用请先注册，随后使用相同账号登录。</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // 小工具
+    const $ = (id) => document.getElementById(id);
+    const fmt = (s) => s ? new Date(Number(s)*1000).toLocaleString() : '-';
+    function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2000); }
+    function setMask(show){ $('loginMask').style.display = show ? 'flex' : 'none'; }
+    function decodeJWT(t){ try{ const p=t.split('.')[1]; return JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/')));}catch{return null} }
+
+    // 状态
+    const state = { token: localStorage.getItem('memogo.access')||'', refresh: localStorage.getItem('memogo.refresh')||'', page:1, pageSize:10, status:'all', total:0, q:'' };
+
+    // API 封装
+    async function api(path, {method='GET', body, auth=true}={}){
+      try {
+        const headers = { 'Content-Type':'application/json' };
+        if(auth && state.token) headers['Authorization'] = 'Bearer ' + state.token;
+        // 使用相对路径，让 http-server 代理到后端服务器
+        const url = path.startsWith('http') ? path : path;
+        console.log('API Request:', method, url); // 调试信息
+
+        const resp = await fetch(url, {
+          method,
+          headers,
+          body: body?JSON.stringify(body):undefined
+        });
+
+        // 只读一次响应体
+        let raw = '';
+        try { raw = await resp.text(); } catch (_) { raw = ''; }
+
+        let data;
+        if (raw) {
+          try { data = JSON.parse(raw); } catch { data = { msg: raw }; }
+        } else {
+          data = {}; // 比如 204 No Content
+        }
+
+        if(resp.status===401){ setMask(true); toast('未授权或令牌已过期，请重新登录'); }
+        return { status: resp.status, data };
+      } catch (error) {
+        console.error('API Error:', error);
+        return { status: 0, data: { msg: '网络请求失败' } };
+      }
+    }
+
+    // 认证
+    async function doLogin(){
+      const username = $('authUser').value.trim();
+      const password = $('authPass').value;
+      const {status,data} = await api('/v1/auth/login',{method:'POST', body:{username,password}, auth:false});
+      if(status===200){
+        const d=data.data||{}; state.token=d.access_token||''; state.refresh=d.refresh_token||'';
+        localStorage.setItem('memogo.access', state.token); localStorage.setItem('memogo.refresh', state.refresh);
+        setMask(false); whoami(); load(); toast('登录成功');
+      }else{ toast(data.msg||'登录失败'); }
+    }
+    async function doRegister(){
+      const username = $('authUser').value.trim();
+      const password = $('authPass').value;
+      const {status,data} = await api('/v1/auth/register',{method:'POST', body:{username,password}, auth:false});
+      if(status===200){
+        const d=data.data||{}; state.token=d.access_token||''; state.refresh=d.refresh_token||'';
+        localStorage.setItem('memogo.access', state.token); localStorage.setItem('memogo.refresh', state.refresh);
+        setMask(false); whoami(); load(); toast('注册成功');
+      }else{ toast(data.msg||'注册失败'); }
+    }
+    async function doRefresh(){
+      // 当前后端以中间件方式处理 refresh，多数实现要求在 Authorization 中带 token
+      const {status,data} = await api('/v1/auth/refresh',{method:'POST'});
+      if(status===200){ const d=data.data||{}; state.token=d.access_token||state.token; localStorage.setItem('memogo.access', state.token); whoami(); toast('刷新成功'); } else { toast('刷新失败'); }
+    }
+    function logout(){ state.token=''; state.refresh=''; localStorage.removeItem('memogo.access'); localStorage.removeItem('memogo.refresh'); whoami(); setMask(true); }
+    function whoami(){ const w=$('who'); if(!state.token){ w.textContent='未登录'; return;} const c=decodeJWT(state.token); w.textContent = c? ('@'+(c.username||c.sub||'')) : '已登录'; }
+
+    // 业务
+    async function create(){
+      const title=$('title').value.trim(); const content=$('content').value; const start=$('start').value.trim(); const due=$('due').value.trim();
+      if(!title||!content){ toast('标题与内容均不能为空'); return; }
+      const body={ title, content }; if(start) body.start_time=Number(start); if(due) body.due_time=Number(due);
+      const {status,data} = await api('/v1/todos',{method:'POST', body});
+      if(status===200){ $('title').value=''; $('content').value=''; $('start').value=''; $('due').value=''; load(); toast('已添加'); } else { toast(data.msg||'添加失败'); }
+    }
+    async function setStatus(id, to){
+      const {status,data} = await api(`/v1/todos/${id}/status`, {method:'PATCH', body:{status:to}});
+      if(status===200){ load(); toast('已更新状态'); } else { toast(data.msg||'更新失败'); }
+    }
+    async function delOne(id){
+      const {status,data} = await api(`/v1/todos/${id}`, {method:'DELETE'});
+      if(status===200 || status===204){ load(); toast('已删除'); } else { toast((data && data.msg) ? data.msg : `删除失败（${status}）`); }
+    }
+    async function bulk(from,to){ const {status,data} = await api(`/v1/todos/status?from=${from}&to=${to}`, {method:'PATCH'}); if(status===200){ load(); toast('批量完成'); } else { toast((data && data.msg) ? data.msg : `批量失败（${status}）`); } }
+    async function delScope(scope){ const {status,data} = await api(`/v1/todos?scope=${scope}`, {method:'DELETE'}); if(status===200 || status===204){ load(); toast('批量删除完成'); } else { toast((data && data.msg) ? data.msg : `批量删除失败（${status}）`); } }
+    async function load(){
+      const params = new URLSearchParams({ status: state.status, page: String(state.page), page_size: String(state.pageSize) });
+      const path = state.q? `/v1/todos/search?${new URLSearchParams({q:state.q,page:String(state.page),page_size:String(state.pageSize)})}` : `/v1/todos?${params}`;
+      const {status,data} = await api(path);
+      if(status!==200){ $('list').innerHTML = `<div class="empty">加载失败：${data.msg||status}</div>`; return; }
+      const items=(data.data&&data.data.items)||[]; state.total=(data.data&&data.data.total)||0;
+      renderList(items);
+      renderPager();
+    }
+
+    // 渲染
+    function renderList(items){
+      if(!items.length){ $('list').innerHTML = '<div class="empty">暂无数据</div>'; return; }
+      $('list').innerHTML = items.map(t=>{
+        const badge = t.status===1? '<span class="badge done">DONE</span>' : '<span class="badge">TODO</span>';
+        return `<div class="todo">
+          <div class="head"><div class="title">${esc(t.title)}</div>${badge}</div>
+          <div class="meta">创建：${fmt(t.created_at)} · 开始：${fmt(t.start_time)} · 截止：${fmt(t.due_time)}</div>
+          <div style="margin-top:8px;white-space:pre-wrap">${esc(t.content)}</div>
+          <div class="ops">
+            ${t.status===0? `<button class="btn" data-op="done" data-id="${t.id}">标记完成</button>` : `<button class="btn" data-op="todo" data-id="${t.id}">标记为待办</button>`}
+            <button class="btn danger" data-op="del" data-id="${t.id}">删除</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    function renderPager(){
+      const totalPages = Math.max(1, Math.ceil(state.total/state.pageSize));
+      $('pagerInfo').textContent = `第 ${state.page}/${totalPages} 页 · 共 ${state.total} 条`;
+      $('prev').disabled = state.page<=1; $('next').disabled = state.page>=totalPages;
+    }
+    function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+    // 事件绑定
+    $('btnCreate').addEventListener('click', create);
+    $('btnClear').addEventListener('click', ()=>{ $('title').value=''; $('content').value=''; $('start').value=''; $('due').value=''; });
+    $('btnBulkDone').addEventListener('click', ()=>bulk('TODO','DONE'));
+    $('btnBulkTodo').addEventListener('click', ()=>bulk('DONE','TODO'));
+    $('btnDelDone').addEventListener('click', ()=>delScope('done'));
+    $('btnSearch').addEventListener('click', ()=>{ state.q=$('search').value.trim(); state.page=1; load(); });
+    $('prev').addEventListener('click', ()=>{ if(state.page>1){ state.page--; load(); } });
+    $('next').addEventListener('click', ()=>{ state.page++; load(); });
+    document.querySelectorAll('.tab').forEach(el=>{
+      el.addEventListener('click', ()=>{ document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); state.status=el.dataset.status; state.page=1; state.q=''; $('search').value=''; load(); });
+    });
+    $('list').addEventListener('click', (e)=>{
+      const btn=e.target.closest('button'); if(!btn) return; const id=btn.getAttribute('data-id'); const op=btn.getAttribute('data-op');
+      if(op==='done') setStatus(id,1); else if(op==='todo') setStatus(id,0); else if(op==='del') delOne(id);
+    });
+    $('btnLogin').addEventListener('click', doLogin);
+    $('btnRegister').addEventListener('click', doRegister);
+    $('btnRefresh').addEventListener('click', doRefresh);
+    $('btnLogout').addEventListener('click', logout);
+
+    // 启动
+    (function init(){
+      whoami();
+      if(!state.token) setMask(true); else setMask(false);
+      document.querySelector('.tab[data-status="all"]').classList.add('active');
+      load();
+    })();
+  </script>
+</body>
+</html>

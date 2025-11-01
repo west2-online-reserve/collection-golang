@@ -23,13 +23,13 @@
 
 MemoGo 是一个基于 Go 的 RESTful API 服务，用于待办事项（Todo/Memo）管理和用户认证。项目使用 CloudWeGo Hertz 框架，并通过 Thrift IDL 进行代码生成。
 
-## 技术栈
+## 技术栈（与当前实现一致）
 
-- **Web 框架**: CloudWeGo Hertz（高性能 HTTP 框架）
-- **IDL**: Apache Thrift 用于服务定义和代码生成
-- **认证**: JWT 双令牌机制（Access Token + Refresh Token）
-- **数据库**: 设计使用 MySQL + GORM（待实现）
-- **架构**: 清晰的分层架构（handler/service/repository）
+- **Web 框架**：CloudWeGo Hertz
+- **IDL/生成**：Apache Thrift + `hz` 代码生成
+- **认证**：JWT（访问令牌 15 分钟、刷新令牌 7 天）
+- **数据库**：GORM + SQLite（文件 `memogo.db`，已实现 AutoMigrate）
+- **架构**：分层（handler / service / repository）
 
 ## 开发命令
 
@@ -66,65 +66,63 @@ go mod tidy
 go mod download
 ```
 
-## 项目结构
+## 项目结构（当前）
 
 ```
 .
-├── idl/memogo.thrift           # Thrift IDL 服务定义文件
-├── main.go                     # 应用入口
-├── router.go                   # 自定义路由注册
-├── router_gen.go               # 生成的路由注册（勿手动编辑）
-├── build.sh                    # 构建脚本
-├── script/bootstrap.sh         # 运行时启动脚本
+├── idl/memogo.thrift            # 服务与路由定义（含 HTTP 注解）
+├── main.go                      # 入口：初始化 DB 与 JWT 中间件
+├── router.go                    # 自定义/兼容性路由（含 /v1/todos/:id/status 别名）
+├── router_gen.go                # 生成的总路由注册（勿改）
 ├── biz/
-│   ├── handler/                # HTTP 处理器
-│   │   ├── ping.go            # 健康检查端点
-│   │   └── memogo/api/        # 生成的服务处理器
-│   ├── router/                # 路由注册
-│   │   ├── register.go        # 生成的路由注册
-│   │   └── memogo/api/        # API 路由和中间件
-│   └── model/                 # 数据模型（生成）
-└── docs/README.md             # 详细的 API 文档
+│   ├── dal/
+│   │   ├── db/init.go          # GORM + SQLite 初始化与迁移
+│   │   ├── model/              # User、Todo 模型
+│   │   └── repository/         # UserRepository、TodoRepository
+│   ├── service/                # AuthService、TodoService
+│   ├── handler/                # ping 与业务处理器
+│   └── router/                 # 生成的路由与中间件绑定
+├── pkg/                         # hash、jwt、middleware 等
+└── docs/README.md              # API 文档（本仓库）
 ```
 
 ## 核心架构要点
 
-### 基于 Thrift 的代码生成
+### 基于 Thrift 的代码生成（已用）
 @idl/memogo.thrift
-- 服务接口和 HTTP 路由在 `idl/memogo.thrift` 中定义
-- `hz` 工具生成 handler、model 和路由代码
-- **重要**: 带有 "Code generated" 注释的文件不应手动编辑
-- 业务逻辑实现在 handler 文件中完成
+- 服务接口与 HTTP 路由由 `idl/memogo.thrift` 注解定义
+- 通过 `hz update -idl idl/memogo.thrift` 生成路由与处理桩
+- 带有“Code generated”注释的文件请勿手动编辑
+- 实际业务在 `biz/service` 与 `biz/handler` 中实现
 
-### 服务 API 端点
+### 服务 API 端点（当前生效）
 
-#### 认证模块
-- `POST /v1/auth/register` - 用户注册
-- `POST /v1/auth/login` - 用户登录
-- `POST /v1/auth/refresh` - 刷新令牌
+#### 健康检查
+- `GET /ping`
 
-#### 待办事项模块
-- `POST /v1/todos` - 创建待办
-- `PATCH /v1/todos/{id}/status` - 更新单条状态
-- `PATCH /v1/todos/status` - 批量更新状态（通过 from/to 参数）
-- `GET /v1/todos` - 列表查询（维持状态过滤和分页）
-- `GET /v1/todos/search` - 关键词搜索（支持分页）
-- `DELETE /v1/todos/{id}` - 删除单条
-- `DELETE /v1/todos` - 按范围批量删除（通过 scope 参数）
+#### 认证
+- `POST /v1/auth/register`（返回自定义 token 对：仅含 access_token、refresh_token）
+- `POST /v1/auth/login`（由中间件返回：access_token、refresh_token=同 access、expires_at）
+- `POST /v1/auth/refresh`（由中间件返回：同登录结构）
+
+#### 待办
+- `POST /v1/todos` 新建
+- `PATCH /v1/todos/{id}/status` 更新单条状态（兼容别名：`/v1/todos/:id/status`）
+- `PATCH /v1/todos/status?from=0&to=1` 批量迁移状态（支持 `TODO/DONE` 或 `0/1`）
+- `GET /v1/todos?status=todo|done|all&page=1&page_size=10` 分页列表
+- `GET /v1/todos/search?q=kw&page=1&page_size=10` 关键词搜索
+- `DELETE /v1/todos/{id}` 删除单条
+- `DELETE /v1/todos?scope=done|todo|all` 按范围删除
 
 ### 认证机制
-- 使用 Bearer Token 认证：`Authorization: Bearer <token>`
-- 实现访问令牌（短期）和刷新令牌（长期）双令牌模式
-- 除认证端点外，所有待办操作都需要认证
-- 所有操作必须带 `user_id` 过滤，防止越权访问
+- 使用 Bearer Token：`Authorization: Bearer <token>`
+- 访问令牌 15 分钟、刷新令牌 7 天（见 `pkg/jwt` 与 `pkg/middleware/jwt.go`）
+- 除注册/登录/刷新外，所有接口均需认证
+- Repository 层所有查询均包含 `user_id` 过滤
 
 ### 统一响应格式
 ```json
-{
-  "status": <HTTP状态码>,
-  "msg": "<消息>",
-  "data": <响应数据>
-}
+{ "status": 200, "msg": "ok", "data": {} }
 ```
 
 ### Hertz 框架特性
@@ -136,34 +134,31 @@ go mod download
 ## 开发注意事项
 
 ### 代码生成工作流
-1. 修改 `idl/memogo.thrift` 定义
-2. 运行 `hz update -idl idl/memogo.thrift`
-3. 实现生成的 handler 桩代码中的业务逻辑
-4. 不要修改任何标记为"Code generated"的文件
+1. 修改 `idl/memogo.thrift`
+2. 执行 `hz update -idl idl/memogo.thrift`
+3. 在 `biz/service` 与 `biz/handler` 填充/调整逻辑
+4. 生成文件（含“Code generated”）不要手改
 
-### 数据库层（待实现）
-- 需要实现 GORM 模型（User、Todo）
-- 需要实现 Repository 层进行数据访问
-- 所有查询必须包含 `user_id` 条件防止越权
-- 使用 Prepared Statements 防止 SQL 注入
+### 数据库层（已实现）
+- 使用 SQLite 本地文件 `memogo.db`
+- `AutoMigrate` 已对 `users` 与 `todos` 表生效
+- 所有查询包含 `user_id` 条件防止越权
 
 ### 安全实践
-- 密码使用 bcrypt/argon2 哈希存储，禁止明文
-- JWT 密钥必须通过环境变量配置，不要硬编码
-- 实现令牌黑名单机制（可用 Redis）
-- 对登录和搜索接口实施限流
-- 配置 CORS 仅允许可信域名
+- 密码使用 bcrypt 哈希，禁止明文（见 `pkg/hash`）
+- JWT 密钥通过 `JWT_SECRET` 配置（默认弱密钥仅用于本地）
+- 可扩展：黑名单、限流、CORS 等（当前未内置）
 
 ### 分页规范
 - `page` 从 1 开始
-- `page_size` 建议默认 10，最大限制 50
-- 返回数据包含 `items`（当前页数据）和 `total`（符合条件的总数）
+- `page_size` 默认 10，最大 50（服务层限制）
+- 响应包含 `items` 与 `total`
 
 ## 测试和调试
 
-详细的 API 调用示例和 cURL 命令请参考 `docs/README.md`。
-
-推荐使用 Postman 或 Apifox 进行接口测试，配置环境变量：
-- `base_url`: http://localhost:8080
-- `access_token`: 从登录/注册获取
-- `refresh_token`: 从登录/注册获取
+- 运行：`go run main.go`
+- 健康检查：`GET /ping` → `{ "message": "pong" }`
+- 调试示例与 cURL：见 `docs/README.md`
+- 建议在 Postman/Apifox 配置：
+  - `base_url = http://localhost:8080`
+  - `access_token`、`refresh_token`（从注册/登录获取）

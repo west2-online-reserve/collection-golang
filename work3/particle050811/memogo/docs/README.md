@@ -1,385 +1,113 @@
-# MemoGo 后端项目文档（简要版）
+# MemoGo 后端文档（与源码一致版）
 
-> 目标：用 Hertz（或 Gin）+ GORM + MySQL 实现一个带用户认证与备忘录（待办）管理的 RESTful API。认证建议使用 `github.com/golang-jwt/jwt/v5`（不要用已知不安全的 `dgrijalva/jwt-go`）。
+本项目基于 CloudWeGo Hertz + GORM 构建，当前实现以 SQLite 为默认数据库，采用 Thrift IDL 驱动的代码生成，提供注册/登录/刷新令牌与 Todo 的增删改查、分页、搜索、批量状态更新。
 
----
+提示：本文档已根据当前源码行为更新，覆盖运行方式、实际路由、鉴权与响应结构等，替换了早期“规划阶段”中关于 MySQL 的描述。
 
-## 一、技术栈与特性
+## 技术栈与关键点
+- Web 框架：Hertz
+- IDL/代码生成：Thrift + `hz`
+- 数据库：GORM + SQLite（文件 `memogo.db` 自动创建和迁移）
+- 认证：JWT（访问令牌 15 分钟、刷新令牌 7 天）
+- 统一响应：`{ status, msg, data }`
 
-* **Web 框架**：CloudWeGo **Hertz**（也可替换为 Gin）
-* **ORM**：GORM v2
-* **DB**：MySQL（可选 Redis 加速/限流）
-* **认证**：JWT（Access/Refresh 双令牌）
-* **接口协议**：RESTful + JSON
-* **IDL**：`idl/memogo.thrift`（可用 `hz` 生成骨架与 OpenAPI）
-* **统一响应**：`{ status, msg, data }`
-* **功能点**：注册、登录、刷新令牌；待办增/查/改/删；分页与搜索；批量状态更新与删除
-
----
-
-## 二、目录结构（三层架构）
-
+## 目录结构（当前）
 ```
 .
-├─ cmd/
-│  └─ server/
-│     └─ main.go                 # 程序入口，加载配置/路由/中间件
-├─ idl/
-│  └─ memogo.thrift              # IDL（通过 hz 生成代码/文档）
-├─ internal/
-│  ├─ config/                    # 配置加载（env / yaml）
-│  ├─ middleware/                # JWT、日志、CORS、Recovery 等
-│  ├─ model/                     # GORM 模型（User / Todo）
-│  ├─ repo/                      # 数据访问（UserRepo / TodoRepo）
-│  ├─ service/                   # 业务逻辑（AuthService / TodoService）
-│  ├─ handler/                   # HTTP 适配/参数绑定（若使用 Gin）
-│  ├─ pkg/
-│  │  ├─ jwtx/                   # JWT 签发/校验/刷新
-│  │  ├─ hash/                   # 密码哈希（bcrypt/argon2）
-│  │  ├─ resp/                   # 统一返回结构
-│  │  └─ pagination/             # 分页工具
-│  └─ dal/
-│     └─ db.go                   # MySQL/Redis 初始化
-├─ scripts/
-│  ├─ migrate.sql                # 建表脚本
-│  └─ seed.sql                   # 测试数据
-├─ docs/
-│  ├─ openapi.json               # OpenAPI（可由 hz 或 swag 生成）
-│  └─ README.md
-├─ configs/config.yaml           # 配置示例
-├─ Dockerfile
-├─ docker-compose.yml
-└─ Makefile
+├── idl/memogo.thrift           # Thrift IDL 服务定义（路由注解来源）
+├── main.go                     # 程序入口，初始化 DB 与 JWT 中间件
+├── router.go                   # 自定义与兼容性路由（含 /v1/todos/:id/status 别名）
+├── router_gen.go               # 生成的总路由注册（勿改）
+├── biz/
+│   ├── dal/
+│   │   ├── db/init.go         # GORM 初始化（SQLite）与 AutoMigrate
+│   │   ├── model/             # User、Todo GORM 模型
+│   │   └── repository/        # UserRepository、TodoRepository
+│   ├── service/               # AuthService、TodoService（业务规则与分页上限）
+│   ├── handler/               # /ping 与 MemoGoService 的实现
+│   └── router/                # hz 生成的路由及中间件绑定
+├── pkg/
+│   ├── hash/                  # bcrypt 封装
+│   ├── jwt/                   # Token 生成与解析、密钥读取
+│   └── middleware/            # Hertz JWT 中间件封装
+└── docs/README.md             # 本文档
 ```
 
----
+## 运行与环境
+- 直接运行：`go run main.go`
+- 二进制：`go build && ./memogo`
+- 可选环境变量：
+  - `JWT_SECRET`（默认有内置弱密钥，仅用于本地调试，生产务必覆盖）
 
-## 三、数据库表（建议）
-
-**users**
-
-* `id` BIGINT PK, AUTO\_INCREMENT
-* `username` VARCHAR(64) UNIQUE NOT NULL
-* `password_hash` VARCHAR(255) NOT NULL
-* `created_at` BIGINT NOT NULL
-
-**todos**
-
-* `id` BIGINT PK, AUTO\_INCREMENT
-* `user_id` BIGINT NOT NULL (FK users.id)
-* `title` VARCHAR(128) NOT NULL
-* `content` TEXT NOT NULL
-* `status` TINYINT NOT NULL DEFAULT 0  (`0=TODO, 1=DONE`)
-* `view` INT NOT NULL DEFAULT 0
-* `created_at` BIGINT NOT NULL
-* `start_time` BIGINT NULL
-* `end_time` BIGINT NULL
-* `due_time` BIGINT NULL
-* 索引建议：`(user_id, status, created_at)`、`(user_id, title)`
-
-> GORM 配置：开启 Prepared Statements；所有 where 条件都带 `user_id` 防止越权。
-
----
-
-## 四、运行与生成
-
-### 1）环境变量（示例）
-
-```
-APP_ADDR=:8080
-DB_DSN=user:pass@tcp(127.0.0.1:3306)/memogo?charset=utf8mb4&parseTime=True&loc=Local
-JWT_SECRET=replace-with-strong-secret
-ACCESS_TOKEN_TTL=900           # 15分钟
-REFRESH_TOKEN_TTL=1209600      # 14天
-REDIS_ADDR=127.0.0.1:6379
-```
-
-### 2）(可选) 使用 `hz` 生成
-
+代码生成相关：
 ```bash
 go install github.com/cloudwego/hertz/cmd/hz@latest
 go mod edit -replace github.com/apache/thrift=github.com/apache/thrift@v0.13.0
-hz new -idl idl/memogo.thrift
-# 生成的代码基础上，填充 service/repo/middleware 等实现
+hz update -idl idl/memogo.thrift
 ```
+带有“Code generated”注释的文件请勿手改。
 
-### 3）启动
+## 鉴权与安全
+- 除注册/登录/刷新外，所有 Todo 接口需要 `Authorization: Bearer <token>`
+- 访问令牌默认 15 分钟、刷新令牌默认 7 天
+- 服务端所有 Todo 读写均带 `user_id` 过滤，隔离不同用户数据
+- 密码使用 bcrypt 存储（见 `pkg/hash`）
 
-```bash
-make migrate       # 执行 scripts/migrate.sql
-make run           # 或 go run ./cmd/server
-# 或: docker compose up -d
-```
+注意：当前登录与刷新接口返回结构由 Hertz JWT 中间件统一输出，`data.refresh_token` 字段与 `access_token` 相同（占位），并包含 `expires_at`；注册接口返回自定义的 token 对，不包含过期时间字段。
 
----
-
-## 五、统一返回结构
-
+## 统一响应结构
 ```json
-{
-  "status": 200,          // 参考 HTTP，但允许业务内二次编码
-  "msg": "ok",
-  "data": { }             // 业务有效载荷（列表/对象/影响条数等）
-}
+{ "status": 200, "msg": "ok", "data": { } }
 ```
-
-**错误示例**
-
-```json
-{ "status": 401, "msg": "invalid token", "data": {} }
-```
-
----
-
-## 六、认证与授权
-
-* 注册/登录/刷新令牌无需鉴权
-* 其他 **todos** 相关接口需要携带：
-
-  * Header: `Authorization: Bearer <access_token>`
-* 使用 `github.com/golang-jwt/jwt/v5` 校验，Access 短期、Refresh 长期
-* 所有查询/更新/删除必须 `WHERE user_id = <from JWT claims>`
-
----
-
-## 七、API 速览与调用示例（cURL）
-
-> 路径以 `/v1` 为前缀；`status` 字段取值：`todo | done | all`；分页 `page` 从 1 开始，`page_size` 建议上限 50。
-
-### 1）用户模块
-
-#### 注册
-
-`POST /v1/auth/register`
-
-```bash
-curl -X POST http://localhost:8080/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"fanone","password":"P@ssw0rd"}'
-```
-
-**响应**
-
-```json
-{
-  "status": 200,
-  "msg": "ok",
-  "data": {
-    "access_token": "...",
-    "refresh_token": "...",
-    "access_expires_in": 900,
-    "refresh_expires_in": 1209600
-  }
-}
-```
-
-#### 登录
-
-`POST /v1/auth/login`（同注册参数/返回）
-
-#### 刷新令牌
-
-`POST /v1/auth/refresh`
-
-```bash
-curl -X POST http://localhost:8080/v1/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token":"<refresh>"}'
-```
-
----
-
-### 2）待办模块
-
-#### 新增待办
-
-`POST /v1/todos`
-
-```bash
-curl -X POST http://localhost:8080/v1/todos \
-  -H "Authorization: Bearer <access>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "学习 Hertz",
-    "content": "完成 CRUD 与分页",
-    "start_time": 1730100000,
-    "due_time": 1730300000
-  }'
-```
-
-**响应**
-
-```json
-{
-  "status": 200,
-  "msg": "ok",
-  "data": {
-    "id": 1,
-    "title": "学习 Hertz",
-    "content": "完成 CRUD 与分页",
-    "view": 0,
-    "status": 0,
-    "created_at": 1730080000,
-    "start_time": 1730100000,
-    "end_time": 0,
-    "due_time": 1730300000
-  }
-}
-```
-
-#### 将**单条**设置为 **DONE/TODO**
-
-`PATCH /v1/todos/{id}/status`
-
-```bash
-curl -X PATCH http://localhost:8080/v1/todos/1/status \
-  -H "Authorization: Bearer <access>" \
-  -H "Content-Type: application/json" \
-  -d '{"status":"DONE"}'
-```
-
-**响应**
-
-```json
-{ "status": 200, "msg": "ok", "data": 1 }
-```
-
-#### 将**所有**从 X 改为 Y（批量）
-
-`PATCH /v1/todos/status?from=TODO&to=DONE`
-
-```bash
-curl -X PATCH "http://localhost:8080/v1/todos/status?from=TODO&to=DONE" \
-  -H "Authorization: Bearer <access>"
-```
-
-**响应**
-
-```json
-{ "status": 200, "msg": "ok", "data": 12 }
-```
-
-#### 查询（分页 + 状态过滤）
-
-`GET /v1/todos?status=todo|done|all&page=1&page_size=10`
-
-```bash
-curl "http://localhost:8080/v1/todos?status=all&page=1&page_size=10" \
-  -H "Authorization: Bearer <access>"
-```
-
-**响应（示例）**
-
-```json
-{
-  "status": 200,
-  "msg": "ok",
-  "data": {
-    "items": [
-      {
-        "id": 1,
-        "title": "学习 Hertz",
-        "content": "完成 CRUD 与分页",
-        "view": 3,
-        "status": 1,
-        "created_at": 1730080000,
-        "start_time": 1730100000,
-        "end_time": 1730123456,
-        "due_time": 1730300000
-      }
-    ],
-    "total": 35
-  }
-}
-```
-
-#### 搜索（分页 + 关键词）
-
-`GET /v1/todos/search?q=关键词&page=1&page_size=10`
-
-```bash
-curl "http://localhost:8080/v1/todos/search?q=Hertz&page=1&page_size=10" \
-  -H "Authorization: Bearer <access>"
-```
-
-#### 删除单条
-
-`DELETE /v1/todos/{id}`
-
-```bash
-curl -X DELETE http://localhost:8080/v1/todos/1 \
-  -H "Authorization: Bearer <access>"
-```
-
-**响应**
-
-```json
-{ "status": 200, "msg": "ok", "data": 1 }
-```
-
-#### 删除（按范围）
-
-`DELETE /v1/todos?scope=done|todo|all`
-
-```bash
-curl -X DELETE "http://localhost:8080/v1/todos?scope=done" \
-  -H "Authorization: Bearer <access>"
-```
-
-**响应**
-
-```json
-{ "status": 200, "msg": "ok", "data": 7 }
-```
-
----
-
-## 八、分页与查询规范
-
-* `page` 从 1 开始；`page_size` 建议 10，最大 50（服务端做上限）
-* 返回字段：
-
-  * `data.items`：当前页数据数组
-  * `data.total`：**符合条件的总条目数**（不是 `items.length`）
-
----
-
-## 九、状态码与错误
-
-* 正常请求：**HTTP 200** + `status: 200`
-* 客户端错误：400（参数错误）、401（未认证/令牌失效）、403（无权限）
-* 服务器错误：500（内部错误）
-* `msg` 放可读文案；详细错误仅记录在服务端日志
-
----
-
-## 十、安全与最佳实践
-
-* **JWT**：短期 Access + 长期 Refresh；支持黑名单（可用 Redis）
-* **密码**：使用 bcrypt/argon2 存储；禁止明文
-* **越权防护**：所有 Todo 操作均以 `user_id` 作为查询准入条件
-* **SQL**：GORM + Prepared Statements；禁止手写拼接
-* **限流**：登录与搜索可加入 IP/User 限流（Redis + 令牌桶）
-* **CORS**：仅放行可信前端域名
-
----
-
-## 十一、接口文档与调试
-
-* **Apifox / Postman**：配置环境变量（`base_url`、`access_token`）与集合测试
-* **自动文档**：
-
-  * 使用 **hz** 根据 `memogo.thrift` 生成路由及 OpenAPI，再导入 Swagger/Apifox
-  * 或使用 `swag` 注解生成 `docs/openapi.json`
-
----
-
-## 十二、快速联调清单
-
-1. `POST /v1/auth/register` → 保存 Access/Refresh
-2. `POST /v1/auth/login`（可复用注册用户）→ 覆盖 Access/Refresh
-3. 带 `Authorization: Bearer <access>` 调用 `/v1/todos` 系列
-4. Access 过期后：`POST /v1/auth/refresh` 换新 Access/Refresh
-5. 验证多用户隔离：不同账号只能看到/修改自己的 todos
-
-
+错误示例：`{ "status": 401, "msg": "Unauthorized: ...", "data": null }`
+
+## 路由与示例
+基础健康检查：
+- `GET /ping` → `{ "message": "pong" }`
+
+认证模块：
+- `POST /v1/auth/register`
+  - 请求：`{ "username": "u", "password": "p" }`
+  - 响应：`{ "status":200, "msg":"Registration successful", "data": { "access_token":"...", "refresh_token":"..." } }`
+- `POST /v1/auth/login`
+  - 请求：`{ "username": "u", "password": "p" }`
+  - 响应：`{ "status":200, "msg":"Login successful", "data": { "access_token":"...", "refresh_token":"...", "expires_at": 1730... } }`
+- `POST /v1/auth/refresh`
+  - 请求：`{ "refresh_token": "..." }`
+  - 响应：同登录结构（由中间件输出）
+
+Todo 模块（均需 Bearer Token）：
+- `POST /v1/todos` 新建
+  - 请求：`{ "title":"t", "content":"c", "start_time":1730..., "due_time":1730... }`
+  - 响应：`{ "status":200, "msg":"ok", "data": { "id":1, "status":0, ... } }`
+- `PATCH /v1/todos/{id}/status` 更新单条状态
+  - 兼容别名：`PATCH /v1/todos/:id/status`
+  - 请求：`{ "status": 1 }`（0=TODO, 1=DONE）
+  - 响应：`{ "status":200, "msg":"ok", "data": 1 }`（受影响条数）
+- `PATCH /v1/todos/status?from=0&to=1` 批量状态迁移
+  - 也支持枚举字符串（如 `from=TODO&to=DONE`），推荐数值
+  - 响应：`{ "status":200, "msg":"ok", "data": <affected> }`
+- `GET /v1/todos?status=todo|done|all&page=1&page_size=10` 分页列表
+  - 响应：`{ "status":200, "msg":"ok", "data": { "items":[], "total": 0 } }`
+- `GET /v1/todos/search?q=kw&page=1&page_size=10` 关键词搜索
+- `DELETE /v1/todos/{id}` 删除单条
+- `DELETE /v1/todos?scope=done|todo|all` 范围删除
+
+分页规范：`page` 从 1 开始；默认 `page_size=10`，最大 50（由服务层限制）。
+
+## 重要实现细节对照
+- 数据库使用 SQLite，初始化与迁移见：`biz/dal/db/init.go`
+- JWT 配置与登录响应见：`pkg/middleware/jwt.go`
+- Token 生成/解析与默认密钥见：`pkg/jwt/jwt.go`
+- 路由注册（生成）：`biz/router/memogo/api/memogo.go`
+- 自定义别名路由：`router.go`
+
+## 常见问题
+- 登录/刷新返回的 `refresh_token` 与 `access_token` 相同：当前中间件使用统一的 `LoginResponse`，此字段为占位输出，不影响受保护接口验证。
+- 更新单条状态的请求体枚举：建议使用数值 `0/1`；如使用字符串 `TODO/DONE`，实际行为依绑定器版本可能不同。
+- **路由兼容性问题**：由于 Hertz 框架路由优先级限制，单条删除和状态更新接口同时支持 `{id}` 和 `:id` 两种参数格式，确保与各种客户端兼容。
+
+## 调试建议
+- 先 `POST /v1/auth/register` 或 `/v1/auth/login` 获取 token
+- 所有 Todo 请求带 `Authorization: Bearer <access_token>`
+- 通过 `GET /ping` 快速验证服务存活

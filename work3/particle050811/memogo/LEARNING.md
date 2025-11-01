@@ -620,4 +620,91 @@ curl -H "Cookie: sid=abcdef123456; Path=/; HttpOnly; Secure" \
 
 ---
 
+## 2025-11-01 Hertz 路由兼容性问题与解决方案
+
+### Q: 为什么需要为 `:id` 形式的路由添加特殊处理？Hertz 和 Thrift 没有兼容吗？
+
+**问题背景**：
+在 `router.go` 中看到需要额外注册 `:id` 格式的路由：
+```go
+// 状态更新路由别名
+todos.PATCH("/:id/status", api.UpdateTodoStatus)
+
+// 单条删除路由别名
+todos.DELETE("/:id", api.DeleteOne)
+```
+
+**问题分析**：
+
+#### 1. Thrift 生成的路由格式
+从 `biz/router/memogo/api/memogo.go` 可以看到 Thrift 生成器使用的是 `{id}` 格式：
+```go
+_todos.DELETE("/{id}", append(_deleteoneMw(), api.DeleteOne)...)
+__7bid_7d.PATCH("/status", append(_updatetodostatusMw(), api.UpdateTodoStatus)...)
+```
+
+#### 2. Hertz 路由匹配机制
+Hertz 框架的路由匹配存在**优先级问题**：
+- **精确匹配** 优先于 **参数化路由**
+- 当同时存在 `/v1/todos` 和 `/v1/todos/{id}` 时，`DELETE /v1/todos/123` 可能匹配到错误的路由
+
+#### 3. 参数格式兼容性
+- Thrift 生成器使用 `{id}` 格式
+- 但某些客户端、环境或历史代码可能使用 `:id` 格式
+- 添加 `:id` 格式的别名确保向后兼容
+
+**具体冲突场景**：
+
+```go
+// 生成的路由（存在优先级冲突）
+_v1.DELETE("/todos", append(_deletebyscopeMw(), api.DeleteByScope)...)     // 精确匹配
+_todos.DELETE("/{id}", append(_deleteoneMw(), api.DeleteOne)...)           // 参数化路由
+
+// 请求：DELETE /v1/todos/123
+// 可能匹配到：DELETE /v1/todos (按范围删除) 而不是 DELETE /v1/todos/{id} (单条删除)
+```
+
+**解决方案**：
+通过 `router.go` 中的自定义路由注册兼容两种格式：
+```go
+// 兼容性路由别名
+// 说明：由于 Hertz 框架路由优先级问题，需要额外注册 ":id" 格式的路由
+// 确保与 Thrift 生成的 "{id}" 格式路由同时可用
+v1 := r.Group("/v1")
+todos := v1.Group("/todos", mw.JWTMiddleware.MiddlewareFunc())
+
+// 状态更新路由别名
+todos.PATCH("/:id/status", api.UpdateTodoStatus)
+
+// 单条删除路由别名
+todos.DELETE("/:id", api.DeleteOne)
+```
+
+**为什么 Hertz 和 Thrift 没有完全兼容？**
+
+1. **框架设计差异**：
+   - Thrift 专注于接口定义和代码生成
+   - Hertz 专注于 HTTP 路由和中间件处理
+   - 两者在路由匹配算法上存在差异
+
+2. **参数格式标准化**：
+   - 不同 Web 框架使用不同的参数格式（`:id`、`{id}`、`<id>`）
+   - Thrift 选择了 `{id}` 格式，但需要确保与各种客户端兼容
+
+3. **路由优先级处理**：
+   - Hertz 的路由匹配算法在处理精确匹配和参数化路由时不够智能
+   - 需要手动处理潜在的冲突
+
+**最佳实践**：
+
+1. **预防性兼容**：对于关键路由，同时注册两种格式
+2. **统一客户端格式**：在文档中明确推荐使用 `{id}` 格式
+3. **测试覆盖**：确保两种格式都能正常工作
+4. **监控日志**：记录实际使用的参数格式，逐步淘汰不推荐的格式
+
+**结论**：
+虽然理想情况下 Thrift 和 Hertz 应该完全兼容，但实际使用中确实需要这些兼容性处理来确保系统的稳定性和向后兼容性。这些特殊路由是解决框架限制的实用方案，体现了防御性编程的思想。
+
+---
+
 *本笔记持续更新中...*

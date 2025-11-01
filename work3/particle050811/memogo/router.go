@@ -13,9 +13,15 @@ import (
 func customizedRegister(r *server.Hertz) {
     r.GET("/ping", handler.Ping)
 
-    // 兼容路由别名：支持 ":id" 形式的 PATCH /v1/todos/:id/status
-    // 说明：生成路由已注册 "/v1/todos/{id}/status"，但为避免部分环境下参数匹配差异，额外注册别名。
+    // 兼容性路由别名
+    // 说明：由于 Hertz 框架路由优先级问题，需要额外注册 ":id" 格式的路由
+    // 确保与 Thrift 生成的 "{id}" 格式路由同时可用
     v1 := r.Group("/v1")
     todos := v1.Group("/todos", mw.JWTMiddleware.MiddlewareFunc())
+
+    // 状态更新路由别名
     todos.PATCH("/:id/status", api.UpdateTodoStatus)
+
+    // 单条删除路由别名
+    todos.DELETE("/:id", api.DeleteOne)
 }
