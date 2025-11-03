@@ -9,10 +9,16 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/swagger"
+	"github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
 )
 
 func main() {
+	// 加载 .env 文件（如果存在）
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found, using environment variables or defaults")
+	}
+
 	// 初始化数据库
 	db.Init()
 

@@ -51,3 +51,6 @@ dumped_hertz_remote_config.json
 
 # 配置笔记（包含敏感信息）
 NOTE.md
+
+# 环境变量配置文件（包含数据库密码等敏感信息）
+.env
