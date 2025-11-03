@@ -252,8 +252,8 @@
     // 事件绑定
     $('btnCreate').addEventListener('click', create);
     $('btnClear').addEventListener('click', ()=>{ $('title').value=''; $('content').value=''; $('start').value=''; $('due').value=''; });
-    $('btnBulkDone').addEventListener('click', ()=>bulk('TODO','DONE'));
-    $('btnBulkTodo').addEventListener('click', ()=>bulk('DONE','TODO'));
+    $('btnBulkDone').addEventListener('click', ()=>bulk(0,1));
+    $('btnBulkTodo').addEventListener('click', ()=>bulk(1,0));
     $('btnDelDone').addEventListener('click', ()=>delScope('done'));
     $('btnSearch').addEventListener('click', ()=>{ state.q=$('search').value.trim(); state.page=1; load(); });
     $('prev').addEventListener('click', ()=>{ if(state.page>1){ state.page--; load(); } });

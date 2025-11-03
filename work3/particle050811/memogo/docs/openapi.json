@@ -1,0 +1,680 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "MemoGo API",
+    "description": "基于 CloudWeGo Hertz 的待办事项管理 API",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "url": "https://github.com/particle050811/memogo",
+      "email": "support@memogo.com"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8888",
+      "description": "本地开发服务器"
+    }
+  ],
+  "paths": {
+    "/v1/auth/register": {
+      "post": {
+        "summary": "用户注册",
+        "description": "创建新用户账户并返回认证令牌",
+        "tags": ["认证"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "注册成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "summary": "用户登录",
+        "description": "验证用户凭据并返回认证令牌",
+        "tags": ["认证"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "summary": "刷新令牌",
+        "description": "使用刷新令牌获取新的访问令牌",
+        "tags": ["认证"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "令牌刷新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/todos": {
+      "post": {
+        "summary": "创建待办事项",
+        "description": "创建新的待办事项",
+        "tags": ["待办事项"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTodoReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTodoResp"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "获取待办事项列表",
+        "description": "分页获取待办事项，支持状态过滤",
+        "tags": ["待办事项"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "状态过滤：todo | done | all",
+            "schema": {
+              "type": "string",
+              "enum": ["todo", "done", "all"]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "页码，从1开始",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "每页数量，最大50",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTodosResp"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "按范围删除待办事项",
+        "description": "根据范围删除待办事项：done | todo | all",
+        "tags": ["待办事项"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "description": "删除范围：done | todo | all",
+            "schema": {
+              "type": "string",
+              "enum": ["done", "todo", "all"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/todos/{id}/status": {
+      "patch": {
+        "summary": "更新单条待办事项状态",
+        "description": "更新指定ID的待办事项状态",
+        "tags": ["待办事项"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "待办事项ID",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTodoStatusReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTodoStatusResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/todos/status": {
+      "patch": {
+        "summary": "批量更新待办事项状态",
+        "description": "将所有满足 from_status 的事项批量改为 to_status",
+        "tags": ["待办事项"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "原状态：0(TODO) 或 1(DONE)",
+            "schema": {
+              "type": "integer",
+              "enum": [0, 1]
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "目标状态：0(TODO) 或 1(DONE)",
+            "schema": {
+              "type": "integer",
+              "enum": [0, 1]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "批量更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateAllStatusResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/todos/search": {
+      "get": {
+        "summary": "搜索待办事项",
+        "description": "根据关键词搜索待办事项",
+        "tags": ["待办事项"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "搜索关键词",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "页码，从1开始",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "每页数量，最大50",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchTodosResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/todos/{id}": {
+      "delete": {
+        "summary": "删除单条待办事项",
+        "description": "删除指定ID的待办事项",
+        "tags": ["待办事项"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "待办事项ID",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "RegisterReq": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "用户名"
+          },
+          "password": {
+            "type": "string",
+            "description": "密码"
+          }
+        }
+      },
+      "LoginReq": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "用户名"
+          },
+          "password": {
+            "type": "string",
+            "description": "密码"
+          }
+        }
+      },
+      "RefreshReq": {
+        "type": "object",
+        "required": ["refresh_token"],
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "description": "刷新令牌"
+          }
+        }
+      },
+      "AuthResp": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "状态码"
+          },
+          "msg": {
+            "type": "string",
+            "description": "消息"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TokenPair"
+          }
+        }
+      },
+      "TokenPair": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "访问令牌"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "刷新令牌"
+          },
+          "access_expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "访问令牌过期时间（秒）"
+          },
+          "refresh_expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "刷新令牌过期时间（秒）"
+          }
+        }
+      },
+      "CreateTodoReq": {
+        "type": "object",
+        "required": ["title", "content"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "标题"
+          },
+          "content": {
+            "type": "string",
+            "description": "内容"
+          },
+          "start_time": {
+            "type": "integer",
+            "format": "int64",
+            "description": "开始时间（Unix 时间戳）"
+          },
+          "due_time": {
+            "type": "integer",
+            "format": "int64",
+            "description": "截止时间（Unix 时间戳）"
+          }
+        }
+      },
+      "CreateTodoResp": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "状态码"
+          },
+          "msg": {
+            "type": "string",
+            "description": "消息"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Todo"
+          }
+        }
+      },
+      "Todo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID"
+          },
+          "title": {
+            "type": "string",
+            "description": "标题"
+          },
+          "content": {
+            "type": "string",
+            "description": "内容"
+          },
+          "view": {
+            "type": "integer",
+            "description": "查看次数"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [0, 1],
+            "description": "状态：0-TODO, 1-DONE"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "创建时间（Unix 时间戳）"
+          },
+          "start_time": {
+            "type": "integer",
+            "format": "int64",
+            "description": "开始时间（Unix 时间戳）"
+          },
+          "end_time": {
+            "type": "integer",
+            "format": "int64",
+            "description": "结束时间（Unix 时间戳）"
+          },
+          "due_time": {
+            "type": "integer",
+            "format": "int64",
+            "description": "截止时间（Unix 时间戳）"
+          }
+        }
+      },
+      "UpdateTodoStatusReq": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "待办事项ID"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [0, 1],
+            "description": "目标状态：0-TODO, 1-DONE"
+          }
+        }
+      },
+      "UpdateTodoStatusResp": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "状态码"
+          },
+          "msg": {
+            "type": "string",
+            "description": "消息"
+          },
+          "data": {
+            "type": "integer",
+            "description": "受影响条数"
+          }
+        }
+      },
+      "UpdateAllStatusResp": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "状态码"
+          },
+          "msg": {
+            "type": "string",
+            "description": "消息"
+          },
+          "data": {
+            "type": "integer",
+            "description": "受影响条数"
+          }
+        }
+      },
+      "ListTodosResp": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "状态码"
+          },
+          "msg": {
+            "type": "string",
+            "description": "消息"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ItemsTodoData"
+          }
+        }
+      },
+      "ItemsTodoData": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Todo"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "总条数"
+          }
+        }
+      },
+      "SearchTodosResp": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "状态码"
+          },
+          "msg": {
+            "type": "string",
+            "description": "消息"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ItemsTodoData"
+          }
+        }
+      },
+      "DeleteResp": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "状态码"
+          },
+          "msg": {
+            "type": "string",
+            "description": "消息"
+          },
+          "data": {
+            "type": "integer",
+            "description": "受影响条数"
+          }
+        }
+      }
+    }
+  }
+}

@@ -8,6 +8,8 @@ import (
 	"memogo/pkg/middleware"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/hertz-contrib/swagger"
+	swaggerFiles "github.com/swaggo/files"
 )
 
 func main() {
@@ -21,8 +23,20 @@ func main() {
 		log.Fatal("Failed to initialize JWT middleware: ", err)
 	}
 
-	h := server.Default()
+	h := server.Default(server.WithHostPorts(":8888"))
 
+	// 注册业务路由
 	register(h)
+
+	// 注册 Swagger 文档路由（使用本地 openapi.json）
+	url := swagger.URL("http://localhost:8888/docs/openapi.json")
+	h.GET("/docs/*any", swagger.WrapHandler(swaggerFiles.Handler, url))
+
+	// 提供 openapi.json 文件
+	h.StaticFile("/docs/openapi.json", "./docs/openapi.json")
+
+	log.Println("📖 API 文档地址: http://localhost:8888/docs/index.html")
+	log.Println("📡 API 服务地址: http://localhost:8888")
+
 	h.Spin()
 }
