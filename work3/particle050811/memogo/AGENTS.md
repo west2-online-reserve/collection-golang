@@ -8,16 +8,25 @@
 
 ### 学习笔记整理规则
 - **触发条件**：仅当用户明确要求"整理笔记"或"写入笔记"时才执行
-- **文件位置**：`LEARNING.md`（系统化学习笔记）
+- **文件结构**：
+  - `learning/`：笔记文件夹（所有笔记统一存放）
+    - `00-index.md`：笔记索引（包含目录、快速查找、常用链接）
+    - `01-auth-and-jwt.md`：认证与 JWT 相关
+    - `02-hertz-and-routing.md`：Hertz 框架与路由
+    - `03-redis-cache.md`：Redis 缓存相关
+    - 根据主题继续扩展（如 `04-xxx.md`）
 - **笔记内容**：
   - 记录用户提出的问题和对应的解答
   - 包含代码示例和实际场景
   - 提供延伸阅读链接
   - 使用清晰的 Markdown 格式
+  - 包含文件路径和行号引用（如 `auth_service.go:92`）
 - **注意事项**：
   - 不要主动整理笔记，必须用户明确要求
   - 整理时要简洁清晰，突出重点
   - 包含日期标记方便后续查阅
+  - 新增内容时，根据主题添加到对应的分类文件
+  - 更新 `learning/00-index.md` 索引以反映新增内容
 
 ## 项目概述
 
@@ -28,7 +37,8 @@ MemoGo 是一个基于 Go 的 RESTful API 服务，用于待办事项（Todo/Mem
 - **Web 框架**：CloudWeGo Hertz
 - **IDL/生成**：Apache Thrift + `hz` 代码生成
 - **认证**：JWT（访问令牌 15 分钟、刷新令牌 7 天）
-- **数据库**：GORM + SQLite（文件 `memogo.db`，已实现 AutoMigrate）
+- **数据库**：GORM + MySQL（已实现 AutoMigrate）
+- **缓存**：Redis（可选，用于数据缓存，采用 Cache-Aside 模式）
 - **架构**：分层（handler / service / repository）
 
 ## 开发命令
@@ -71,14 +81,15 @@ go mod download
 ```
 .
 ├── idl/memogo.thrift            # 服务与路由定义（含 HTTP 注解）
-├── main.go                      # 入口：初始化 DB 与 JWT 中间件
+├── main.go                      # 入口：初始化 DB、Redis 与 JWT 中间件
 ├── router.go                    # 自定义/兼容性路由（含 /v1/todos/:id/status 别名）
 ├── router_gen.go                # 生成的总路由注册（勿改）
 ├── biz/
 │   ├── dal/
-│   │   ├── db/init.go          # GORM + SQLite 初始化与迁移
+│   │   ├── db/init.go          # GORM + MySQL 初始化与迁移
+│   │   ├── redis/init.go       # Redis 客户端初始化
 │   │   ├── model/              # User、Todo 模型
-│   │   └── repository/         # UserRepository、TodoRepository
+│   │   └── repository/         # UserRepository、TodoRepository（含缓存逻辑）
 │   ├── service/                # AuthService、TodoService
 │   ├── handler/                # ping 与业务处理器
 │   └── router/                 # 生成的路由与中间件绑定
@@ -140,9 +151,19 @@ go mod download
 4. 生成文件（含“Code generated”）不要手改
 
 ### 数据库层（已实现）
-- 使用 SQLite 本地文件 `memogo.db`
+- 使用 MySQL 数据库（通过环境变量配置）
 - `AutoMigrate` 已对 `users` 与 `todos` 表生效
 - 所有查询包含 `user_id` 条件防止越权
+
+### 缓存层（已实现）
+- 使用 Redis 进行数据缓存（可选，如果 Redis 连接失败会自动降级）
+- 采用 Cache-Aside（旁路缓存）模式：
+  - **读操作**：先查缓存，未命中再查数据库，然后写入缓存
+  - **写操作**：先更新数据库，成功后删除相关缓存
+- 缓存策略：
+  - `ListTodos` 和 `SearchTodos` 查询结果缓存 5 分钟
+  - 任何写操作（Create/Update/Delete）会清除对应用户的所有缓存
+  - 缓存键格式：`todos:list:user:{id}:status:{status}:page:{page}:size:{size}`
 
 ### 安全实践
 - 密码使用 bcrypt 哈希，禁止明文（见 `pkg/hash`）

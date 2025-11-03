@@ -5,6 +5,7 @@ package main
 import (
 	"log"
 	"memogo/biz/dal/db"
+	"memogo/biz/dal/redis"
 	"memogo/pkg/middleware"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -21,6 +22,9 @@ func main() {
 
 	// 初始化数据库
 	db.Init()
+
+	// 初始化 Redis（可选，如果连接失败会降级到无缓存模式）
+	redis.Init()
 
 	// 初始化 JWT 中间件
 	var err error
