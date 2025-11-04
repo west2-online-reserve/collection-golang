@@ -42,6 +42,7 @@ func InitJWTMiddleware() (*hertzJWT.HertzJWTMiddleware, error) {
 				return hertzJWT.MapClaims{
 					"user_id":  v.UserID,
 					"username": v.Username,
+					"orig_iat": time.Now().Unix(), // 原始签发时间，刷新 token 时需要
 				}
 			}
 			return hertzJWT.MapClaims{}
@@ -95,6 +96,19 @@ func InitJWTMiddleware() (*hertzJWT.HertzJWTMiddleware, error) {
 				"data": utils.H{
 					"access_token":  token,
 					"refresh_token": token, // 这里暂时返回相同的 token
+					"expires_at":    expire.Unix(),
+				},
+			})
+		},
+
+		// RefreshResponse 刷新 token 成功后的响应
+		RefreshResponse: func(ctx context.Context, c *app.RequestContext, code int, token string, expire time.Time) {
+			c.JSON(200, utils.H{
+				"status": 200,
+				"msg":    "Token refreshed",
+				"data": utils.H{
+					"access_token":  token,
+					"refresh_token": token,
 					"expires_at":    expire.Unix(),
 				},
 			})

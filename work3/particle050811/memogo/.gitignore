@@ -48,6 +48,11 @@ dumped_hertz_remote_config.json
 # 可执行文件（构建产物，不应提交）
 /memogo
 /testclient
+/testcursor
+
+# tools 目录下的可执行文件
+tools/testclient/testclient
+tools/testcursor/testcursor
 
 # 配置笔记（包含敏感信息）
 NOTE.md

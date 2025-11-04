@@ -160,7 +160,8 @@ func (r *TodoRepository) ListTodos(userID uint, statusFilter string, page, pageS
     if page < 1 { page = 1 }
     if pageSize <= 0 { pageSize = 10 }
     offset := (page - 1) * pageSize
-    if err := q.Order("id DESC").Offset(offset).Limit(pageSize).Find(&todos).Error; err != nil {
+    // 按创建时间升序：最早的备忘录显示在前面
+    if err := q.Order("created_at ASC, id ASC").Offset(offset).Limit(pageSize).Find(&todos).Error; err != nil {
         return nil, 0, err
     }
 
@@ -218,7 +219,8 @@ func (r *TodoRepository) SearchTodos(userID uint, keyword string, page, pageSize
     if page < 1 { page = 1 }
     if pageSize <= 0 { pageSize = 10 }
     offset := (page - 1) * pageSize
-    if err := q.Order("id DESC").Offset(offset).Limit(pageSize).Find(&todos).Error; err != nil {
+    // 按创建时间升序：最早的备忘录显示在前面
+    if err := q.Order("created_at ASC, id ASC").Offset(offset).Limit(pageSize).Find(&todos).Error; err != nil {
         return nil, 0, err
     }
 
@@ -238,4 +240,80 @@ func (r *TodoRepository) SearchTodos(userID uint, keyword string, page, pageSize
     }
 
     return todos, total, nil
+}
+
+// ListTodosCursor 游标分页查询（用于高效遍历全部数据）
+// cursor: 上一页最后一条的 ID，首次查询传 0
+// 返回: todos列表, 下一页的cursor(0表示无下一页), hasMore(是否有更多数据), error
+func (r *TodoRepository) ListTodosCursor(userID uint, statusFilter string, cursor uint, limit int) ([]model.Todo, uint, bool, error) {
+    var todos []model.Todo
+
+    // 构建基础查询
+    q := r.db.Model(&model.Todo{}).Where("user_id = ?", userID)
+
+    // 状态过滤
+    switch statusFilter {
+    case "done":
+        q = q.Where("status = ?", 1)
+    case "todo":
+        q = q.Where("status = ?", 0)
+    }
+
+    // 游标过滤：因为是升序（旧→新），需要找比 cursor 更大的 ID
+    if cursor > 0 {
+        q = q.Where("id > ?", cursor)
+    }
+
+    // 查询 limit+1 条，用于判断是否还有下一页
+    if err := q.Order("created_at ASC, id ASC").Limit(limit + 1).Find(&todos).Error; err != nil {
+        return nil, 0, false, err
+    }
+
+    // 判断是否有更多数据
+    hasMore := len(todos) > limit
+    var nextCursor uint
+
+    if hasMore {
+        // 有下一页：返回 limit 条数据，nextCursor 为最后一条的 ID
+        nextCursor = uint(todos[limit-1].ID)
+        todos = todos[:limit]
+    } else {
+        // 没有下一页
+        nextCursor = 0
+    }
+
+    return todos, nextCursor, hasMore, nil
+}
+
+// SearchTodosCursor 关键词游标分页查询
+func (r *TodoRepository) SearchTodosCursor(userID uint, keyword string, cursor uint, limit int) ([]model.Todo, uint, bool, error) {
+    var todos []model.Todo
+
+    // 构建查询
+    q := r.db.Model(&model.Todo{}).
+        Where("user_id = ?", userID).
+        Where("title LIKE ? OR content LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+
+    // 游标过滤
+    if cursor > 0 {
+        q = q.Where("id > ?", cursor)
+    }
+
+    // 查询 limit+1 条
+    if err := q.Order("created_at ASC, id ASC").Limit(limit + 1).Find(&todos).Error; err != nil {
+        return nil, 0, false, err
+    }
+
+    // 判断是否有更多数据
+    hasMore := len(todos) > limit
+    var nextCursor uint
+
+    if hasMore {
+        nextCursor = uint(todos[limit-1].ID)
+        todos = todos[:limit]
+    } else {
+        nextCursor = 0
+    }
+
+    return todos, nextCursor, hasMore, nil
 }

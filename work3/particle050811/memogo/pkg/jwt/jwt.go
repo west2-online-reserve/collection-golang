@@ -19,6 +19,7 @@ var (
 type Claims struct {
 	UserID   uint   `json:"user_id"`
 	Username string `json:"username"`
+	OrigIat  int64  `json:"orig_iat"`
 	jwt.RegisteredClaims
 }
 
@@ -34,13 +35,15 @@ func GetJWTSecret() []byte {
 
 // GenerateToken 生成 JWT token
 func GenerateToken(userID uint, username string, duration time.Duration) (string, error) {
+	now := time.Now()
 	claims := Claims{
 		UserID:   userID,
 		Username: username,
+		OrigIat:  now.Unix(),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
 		},
 	}
 

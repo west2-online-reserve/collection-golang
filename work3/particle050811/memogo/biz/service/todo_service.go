@@ -95,3 +95,24 @@ func (s *TodoService) SearchTodos(userID uint, keyword string, page, pageSize in
     }
     return s.repo.SearchTodos(userID, keyword, page, pageSize)
 }
+
+// ListTodosCursor 游标分页查询（用于高效遍历全部数据，O(n) 复杂度）
+func (s *TodoService) ListTodosCursor(userID uint, status string, cursor uint, limit int) ([]model.Todo, uint, bool, error) {
+    // 限制每次查询的最大数量
+    if limit <= 0 {
+        limit = 10
+    } else if limit > 100 {
+        limit = 100 // 游标分页可以允许更大的 limit
+    }
+    return s.repo.ListTodosCursor(userID, status, cursor, limit)
+}
+
+// SearchTodosCursor 关键词游标分页查询
+func (s *TodoService) SearchTodosCursor(userID uint, keyword string, cursor uint, limit int) ([]model.Todo, uint, bool, error) {
+    if limit <= 0 {
+        limit = 10
+    } else if limit > 100 {
+        limit = 100
+    }
+    return s.repo.SearchTodosCursor(userID, keyword, cursor, limit)
+}

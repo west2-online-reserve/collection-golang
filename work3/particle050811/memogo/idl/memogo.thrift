@@ -115,6 +115,39 @@ struct SearchTodosResp {
   3: ItemsTodoData data
 }
 
+// ---------- 待办 - 游标分页（高效遍历，O(n) 复杂度） ----------
+struct ListTodosCursorReq {
+  1: optional string authorization (api.header = "Authorization")
+  2: optional string status        (api.query = "status")  // "todo" | "done" | "all"
+  3: i64             cursor         (api.query = "cursor")  // 上一页最后一条的 ID，首次传 0
+  4: i32             limit          (api.query = "limit")   // 每页数量，默认 10，最大 100
+}
+
+struct CursorTodoData {
+  1: list<Todo> items
+  2: i64        next_cursor  // 下一页的游标，0 表示无下一页
+  3: bool       has_more     // 是否还有更多数据
+}
+
+struct ListTodosCursorResp {
+  1: i32            status
+  2: string         msg
+  3: CursorTodoData data
+}
+
+struct SearchTodosCursorReq {
+  1: optional string authorization (api.header = "Authorization")
+  2: string          q             (api.query = "q")      // 关键词
+  3: i64             cursor         (api.query = "cursor")
+  4: i32             limit          (api.query = "limit")
+}
+
+struct SearchTodosCursorResp {
+  1: i32            status
+  2: string         msg
+  3: CursorTodoData data
+}
+
 // ---------- 待办 - 删除 ----------
 struct DeleteOneReq {
   1: optional string authorization (api.header = "Authorization")
@@ -156,6 +189,14 @@ service MemoGoService {
   // 事务模块：查（分页 + 关键词搜索）
   SearchTodosResp SearchTodos(1: SearchTodosReq req)
     (api.get = "/v1/todos/search")
+
+  // 事务模块：查（游标分页，高效遍历）
+  ListTodosCursorResp ListTodosCursor(1: ListTodosCursorReq req)
+    (api.get = "/v1/todos/cursor")
+
+  // 事务模块：查（关键词 + 游标分页）
+  SearchTodosCursorResp SearchTodosCursor(1: SearchTodosCursorReq req)
+    (api.get = "/v1/todos/search/cursor")
 
   // 事务模块：删（单条）
   DeleteResp DeleteOne(1: DeleteOneReq req)
