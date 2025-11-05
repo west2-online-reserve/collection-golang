@@ -49,7 +49,7 @@ learning/
 
 **关键问题**：
 - Q: `_deletebyscopeMw()` 是如何生成的？
-- Q: 为什么需要为 `:id` 形式的路由添加特殊处理？
+- Q: 为什么 IDL 中的 `{id}` 导致路由不匹配？（`:id` vs `{id}` 语法）
 
 ---
 
@@ -122,8 +122,8 @@ learning/
 | 2025-10-30 | JWT 认证与中间件 | `learning/01-auth-and-jwt.md` |
 | 2025-10-31 | 路由中间件生成规则 | `learning/02-hertz-and-routing.md` |
 | 2025-10-31 | JWT vs Cookie | `learning/01-auth-and-jwt.md` |
-| 2025-11-01 | Hertz 路由兼容性 | `learning/02-hertz-and-routing.md` |
 | 2025-11-03 | Redis 缓存实现 | `learning/03-redis-cache.md` |
+| 2025-11-05 | Hertz 路由参数语法（`:id` vs `{id}`） | `learning/02-hertz-and-routing.md` |
 | 2025-11-04 | 传统分页实现与原理 | `learning/04-pagination-optimization.md` |
 | 2025-11-04 | 数据库排序算法 | `learning/04-pagination-optimization.md` |
 | 2025-11-04 | 排序方向优化（旧记录优先） | `learning/04-pagination-optimization.md` |
@@ -167,4 +167,4 @@ learning/
 ---
 
 *本笔记持续更新中...*
-*最后更新：2025-11-04*
+*最后更新：2025-11-05*

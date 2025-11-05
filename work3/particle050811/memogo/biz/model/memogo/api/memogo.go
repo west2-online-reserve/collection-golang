@@ -6386,7 +6386,7 @@ type MemoGoService interface {
 	CreateTodo(ctx context.Context, req *CreateTodoReq) (r *CreateTodoResp, err error)
 	// 事务模块：改（单条改状态）
 	UpdateTodoStatus(ctx context.Context, req *UpdateTodoStatusReq) (r *UpdateTodoStatusResp, err error)
-	// 事务模块：改（全部/批量改状态；用 from/to 表示“将所有 X 改为 Y”）
+	// 事务模块：改（全部/批量改状态；用 from/to 表示"将所有 X 改为 Y"）
 	UpdateAllStatus(ctx context.Context, req *UpdateAllStatusReq) (r *UpdateAllStatusResp, err error)
 	// 事务模块：查（分页 + 状态过滤）
 	ListTodos(ctx context.Context, req *ListTodosReq) (r *ListTodosResp, err error)

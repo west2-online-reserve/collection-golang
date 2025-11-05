@@ -5,23 +5,12 @@ package main
 import (
     "github.com/cloudwego/hertz/pkg/app/server"
     handler "memogo/biz/handler"
-    api "memogo/biz/handler/memogo/api"
-    mw "memogo/pkg/middleware"
 )
 
 // customizeRegister registers customize routers.
 func customizedRegister(r *server.Hertz) {
     r.GET("/ping", handler.Ping)
 
-    // 兼容性路由别名
-    // 说明：由于 Hertz 框架路由优先级问题，需要额外注册 ":id" 格式的路由
-    // 确保与 Thrift 生成的 "{id}" 格式路由同时可用
-    v1 := r.Group("/v1")
-    todos := v1.Group("/todos", mw.JWTMiddleware.MiddlewareFunc())
-
-    // 状态更新路由别名
-    todos.PATCH("/:id/status", api.UpdateTodoStatus)
-
-    // 单条删除路由别名
-    todos.DELETE("/:id", api.DeleteOne)
+    // 自定义路由可以在这里添加
+    // 说明：IDL 已使用 `:id` 语法，生成的路由可直接工作，无需额外别名
 }

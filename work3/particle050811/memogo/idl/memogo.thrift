@@ -175,34 +175,26 @@ service MemoGoService {
   CreateTodoResp CreateTodo(1: CreateTodoReq req) (api.post = "/v1/todos")
 
   // 事务模块：改（单条改状态）
-  UpdateTodoStatusResp UpdateTodoStatus(1: UpdateTodoStatusReq req)
-    (api.patch = "/v1/todos/{id}/status")
+  UpdateTodoStatusResp UpdateTodoStatus(1: UpdateTodoStatusReq req) (api.patch = "/v1/todos/:id/status")
 
-  // 事务模块：改（全部/批量改状态；用 from/to 表示“将所有 X 改为 Y”）
-  UpdateAllStatusResp UpdateAllStatus(1: UpdateAllStatusReq req)
-    (api.patch = "/v1/todos/status")
+  // 事务模块：改（全部/批量改状态；用 from/to 表示"将所有 X 改为 Y"）
+  UpdateAllStatusResp UpdateAllStatus(1: UpdateAllStatusReq req) (api.patch = "/v1/todos/status")
 
   // 事务模块：查（分页 + 状态过滤）
-  ListTodosResp ListTodos(1: ListTodosReq req)
-    (api.get = "/v1/todos")
+  ListTodosResp ListTodos(1: ListTodosReq req) (api.get = "/v1/todos")
 
   // 事务模块：查（分页 + 关键词搜索）
-  SearchTodosResp SearchTodos(1: SearchTodosReq req)
-    (api.get = "/v1/todos/search")
+  SearchTodosResp SearchTodos(1: SearchTodosReq req) (api.get = "/v1/todos/search")
 
   // 事务模块：查（游标分页，高效遍历）
-  ListTodosCursorResp ListTodosCursor(1: ListTodosCursorReq req)
-    (api.get = "/v1/todos/cursor")
+  ListTodosCursorResp ListTodosCursor(1: ListTodosCursorReq req) (api.get = "/v1/todos/cursor")
 
   // 事务模块：查（关键词 + 游标分页）
-  SearchTodosCursorResp SearchTodosCursor(1: SearchTodosCursorReq req)
-    (api.get = "/v1/todos/search/cursor")
+  SearchTodosCursorResp SearchTodosCursor(1: SearchTodosCursorReq req) (api.get = "/v1/todos/search/cursor")
 
   // 事务模块：删（单条）
-  DeleteResp DeleteOne(1: DeleteOneReq req)
-    (api.delete = "/v1/todos/{id}")
+  DeleteResp DeleteOne(1: DeleteOneReq req) (api.delete = "/v1/todos/:id")
 
   // 事务模块：删（按 scope 删除：done/todo/all）
-  DeleteResp DeleteByScope(1: DeleteByScopeReq req)
-    (api.delete = "/v1/todos")
+  DeleteResp DeleteByScope(1: DeleteByScopeReq req) (api.delete = "/v1/todos")
 }

@@ -23,7 +23,7 @@ func Register(r *server.Hertz) {
 		_v1.GET("/todos", append(_listtodosMw(), api.ListTodos)...)
 		_todos := _v1.Group("/todos", _todosMw()...)
 		_todos.GET("/cursor", append(_listtodoscursorMw(), api.ListTodosCursor)...)
-		_todos.DELETE("/{id}", append(_deleteoneMw(), api.DeleteOne)...)
+		_todos.DELETE("/:id", append(_deleteoneMw(), api.DeleteOne)...)
 		_todos.GET("/search", append(_searchtodosMw(), api.SearchTodos)...)
 		_search := _todos.Group("/search", _searchMw()...)
 		_search.GET("/cursor", append(_searchtodoscursorMw(), api.SearchTodosCursor)...)
@@ -31,8 +31,8 @@ func Register(r *server.Hertz) {
 		_todos0 := _v1.Group("/todos", _todos0Mw()...)
 		_todos0.PATCH("/status", append(_updateallstatusMw(), api.UpdateAllStatus)...)
 		{
-			__7bid_7d := _todos0.Group("/{id}", __7bid_7dMw()...)
-			__7bid_7d.PATCH("/status", append(_updatetodostatusMw(), api.UpdateTodoStatus)...)
+			_id := _todos0.Group("/:id", _idMw()...)
+			_id.PATCH("/status", append(_updatetodostatusMw(), api.UpdateTodoStatus)...)
 		}
 		{
 			_auth := _v1.Group("/auth", _authMw()...)
