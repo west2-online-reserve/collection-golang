@@ -8,9 +8,10 @@
 
 ```
 learning/
-├── 01-auth-and-jwt.md      # 认证与 JWT 相关
-├── 02-hertz-and-routing.md # Hertz 框架与路由
-└── 03-redis-cache.md        # Redis 缓存相关
+├── 01-auth-and-jwt.md          # 认证与 JWT 相关
+├── 02-hertz-and-routing.md     # Hertz 框架与路由
+├── 03-redis-cache.md            # Redis 缓存相关
+└── 04-pagination-optimization.md # 分页查询优化
 ```
 
 ---
@@ -72,6 +73,30 @@ learning/
 
 ---
 
+### 04. 分页查询优化 [`learning/04-pagination-optimization.md`]
+
+**主题内容**：
+- 传统分页（OFFSET + LIMIT）实现
+- 分页公式与 SQL 生成
+- 数据库排序算法（QuickSort、MergeSort、外部排序）
+- 索引对排序的影响
+- 排序方向与业务需求（升序 vs 降序）
+- OFFSET 分页的性能陷阱（O(n²) 问题）
+- 游标分页优化（Cursor Pagination）
+- 时间复杂度优化（O(n²) → O(n)）
+- 游标方向与排序匹配规则
+
+**关键问题**：
+- Q: 查询如何做到分页？
+- Q: 为何不是直接返回第 x-y 条？
+- Q: 数据库使用什么排序算法？
+- Q: 为何最早的备忘录应该在最前面？
+- Q: 读取全部数据为何是 O(n²)？能否优化到 O(n)？
+- Q: 为何用 `id > cursor` 而不是 `id < cursor`？
+- Q: 何时使用游标分页，何时使用 OFFSET 分页？
+
+---
+
 ## 🎯 快速查找
 
 ### 按主题查找
@@ -84,7 +109,10 @@ learning/
 | 路由配置 | `learning/02-hertz-and-routing.md` |
 | 中间件 | `learning/02-hertz-and-routing.md` |
 | 缓存实现 | `learning/03-redis-cache.md` |
-| 性能优化 | `learning/03-redis-cache.md` |
+| 性能优化 | `learning/03-redis-cache.md`, `learning/04-pagination-optimization.md` |
+| 分页查询 | `learning/04-pagination-optimization.md` |
+| 数据库优化 | `learning/04-pagination-optimization.md` |
+| 算法优化 | `learning/04-pagination-optimization.md` |
 
 ### 按日期查找
 
@@ -96,6 +124,10 @@ learning/
 | 2025-10-31 | JWT vs Cookie | `learning/01-auth-and-jwt.md` |
 | 2025-11-01 | Hertz 路由兼容性 | `learning/02-hertz-and-routing.md` |
 | 2025-11-03 | Redis 缓存实现 | `learning/03-redis-cache.md` |
+| 2025-11-04 | 传统分页实现与原理 | `learning/04-pagination-optimization.md` |
+| 2025-11-04 | 数据库排序算法 | `learning/04-pagination-optimization.md` |
+| 2025-11-04 | 排序方向优化（旧记录优先） | `learning/04-pagination-optimization.md` |
+| 2025-11-04 | 游标分页优化（O(n²) → O(n)） | `learning/04-pagination-optimization.md` |
 
 ---
 
@@ -116,6 +148,12 @@ learning/
 - [Cache-Aside Pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside)
 - [RESTful API 设计规范](https://restfulapi.net/)
 
+### 性能优化
+- [高性能分页方案：Seek Method（游标分页）](https://use-the-index-luke.com/no-offset)
+- [为什么深度分页很慢？](https://www.eversql.com/faster-pagination-in-mysql-why-order-by-with-limit-and-offset-is-slow/)
+- [MySQL 排序优化](https://dev.mysql.com/doc/refman/8.0/en/order-by-optimization.html)
+- [B+树索引原理](https://dev.mysql.com/doc/refman/8.0/en/innodb-physical-structure.html)
+
 ---
 
 ## 📝 笔记规范
@@ -129,4 +167,4 @@ learning/
 ---
 
 *本笔记持续更新中...*
-*最后更新：2025-11-03*
+*最后更新：2025-11-04*

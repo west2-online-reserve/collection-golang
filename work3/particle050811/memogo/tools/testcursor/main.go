@@ -55,9 +55,15 @@ func doJSON(ctx context.Context, client *http.Client, method, url, token string,
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	resp, _ := client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 	if out != nil {
 		json.Unmarshal(data, out)
 	}

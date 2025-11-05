@@ -55,7 +55,7 @@ tools/testclient/testclient
 tools/testcursor/testcursor
 
 # 配置笔记（包含敏感信息）
-NOTE.md
+ai.env.md
 
 # 环境变量配置文件（包含数据库密码等敏感信息）
 .env
