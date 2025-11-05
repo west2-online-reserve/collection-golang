@@ -27,8 +27,10 @@ learning/
 - Thrift 结构体生成规则
 - JWT 认证机制
 - Hertz JWT 中间件配置
-- 双令牌机制
-- JWT 防篡改原理（HMAC-SHA256）
+- 双令牌机制（AccessToken vs RefreshToken）
+- JWT Token 生成原理（非随机，基于签名）
+- JWT 时间字段详解（ExpiresAt、IssuedAt、NotBefore）
+- JWT 防篡改原理（HMAC-SHA256 签名算法）
 - JWT vs Cookie 对比
 
 **关键问题**：
@@ -36,6 +38,11 @@ learning/
 - Q: LoginHandler 为何一行能完成登录？
 - Q: JWT Token 是存到内存里的吗？
 - Q: JWT 是如何防篡改的？
+- Q: AccessToken 和 RefreshToken 有什么区别？
+- Q: GenerateTokenPair 是生成随机 Token 吗？
+- Q: JWT 的三个时间字段分别是什么意思？
+- Q: NotBefore 是必须设置的吗？
+- Q: HS256 签名算法如何实现签名？
 
 ---
 
@@ -123,11 +130,15 @@ learning/
 | 2025-10-31 | 路由中间件生成规则 | `learning/02-hertz-and-routing.md` |
 | 2025-10-31 | JWT vs Cookie | `learning/01-auth-and-jwt.md` |
 | 2025-11-03 | Redis 缓存实现 | `learning/03-redis-cache.md` |
-| 2025-11-05 | Hertz 路由参数语法（`:id` vs `{id}`） | `learning/02-hertz-and-routing.md` |
 | 2025-11-04 | 传统分页实现与原理 | `learning/04-pagination-optimization.md` |
 | 2025-11-04 | 数据库排序算法 | `learning/04-pagination-optimization.md` |
 | 2025-11-04 | 排序方向优化（旧记录优先） | `learning/04-pagination-optimization.md` |
 | 2025-11-04 | 游标分页优化（O(n²) → O(n)） | `learning/04-pagination-optimization.md` |
+| 2025-11-05 | Hertz 路由参数语法（`:id` vs `{id}`） | `learning/02-hertz-and-routing.md` |
+| 2025-11-05 | JWT Token 生成与验证机制 | `learning/01-auth-and-jwt.md` |
+| 2025-11-05 | AccessToken vs RefreshToken 详解 | `learning/01-auth-and-jwt.md` |
+| 2025-11-05 | JWT 时间字段详解 | `learning/01-auth-and-jwt.md` |
+| 2025-11-05 | HMAC-SHA256 签名算法原理 | `learning/01-auth-and-jwt.md` |
 
 ---
 
@@ -167,4 +178,4 @@ learning/
 ---
 
 *本笔记持续更新中...*
-*最后更新：2025-11-05*
+*最后更新：2025-11-05（新增 JWT Token 生成与验证机制详解）*
