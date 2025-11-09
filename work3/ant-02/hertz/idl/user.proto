@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "user";
+
+import "api.proto";
+
+message RegisterRequest {
+    string username = 1[(api.body) = "username"];
+    string password = 2[(api.body) = "password"];
+}
+
+message Response {
+    int32 status = 1;
+    string msg = 2;
+}
+
+service UserService {
+    rpc Register(RegisterRequest) returns (Response) {
+        option (api.post) = "/register";
+    };
+}
