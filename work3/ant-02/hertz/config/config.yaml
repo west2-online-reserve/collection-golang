@@ -1,0 +1,27 @@
+server:
+  port: "8080"
+
+
+database:
+  host: "localhost"
+  port: 3306
+  username: "root"
+  password: "141363"
+  dbname: "west2_go"
+
+
+log:
+  level: "debug"
+  path: "/logs/logs.log"
+
+
+jwt:
+  secretKey: "west2_go"
+  signed: "HS256"
+  expireTime: 24
+  maxRefresh: 24
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0

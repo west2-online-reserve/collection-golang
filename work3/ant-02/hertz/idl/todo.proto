@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package todo;
+
+option go_package = "todo";
+
+import "api.proto";
+
+message Todo {
+    uint64 id = 8;
+    string title = 1[(api.body) = "title"];
+    string content = 2[(api.body) = "content"];
+    uint64 view = 3[(api.body) = "view"];
+    uint32 status = 4[(api.body) = "status"];
+    string createdAt = 5[(api.body) = "createdAt"];
+    string startTime = 6[(api.body) = "startTime"];
+    string endTime = 7[(api.body) = "endTime"];
+}
+
+message Response {
+    int32 status = 1;
+    string msg = 2;
+}
+
+message TodoList {
+    repeated Todo items = 1;
+    int64 total =2;
+}
+
+message TodoResponse {
+    int32 status = 1;
+    string msg = 2;
+    TodoList data = 3;
+}
+
+message AddRequest {
+    Todo todo = 1[(api.body) = "todo"]; 
+}
+
+message SetTodoFinishedRequest {
+    uint64 id = 1[(api.query) = "id"];
+}
+
+message SetTodosFinishedRequest {}
+
+message SetTodoNotFinishedRequest {
+    uint64 id = 1[(api.query) = "id"];
+}
+
+message SetTodosNotFinishedRequest {}
+
+message GetTodosRequest {
+    int64 pageNum = 1[(api.query) = "pageNum"];
+    int64 pageSize = 2[(api.query) = "pageSize"];
+}
+
+message GetTodosFinishedRequest {
+    int64 pageNum = 1[(api.query) = "pageNum"];
+    int64 pageSize = 2[(api.query) = "pageSize"];
+}
+
+message GetTodosNotFinishedRequest {
+    int64 pageNum = 1[(api.query) = "pageNum"];
+    int64 pageSize = 2[(api.query) = "pageSize"];
+}
+
+message GetKeyTodosRequest {
+    int64 pageNum = 1[(api.query) = "pageNum"];
+    int64 pageSize = 2[(api.query) = "pageSize"];
+    string key = 3[(api.query) = "key"];
+}
+
+message DeleteTodoRequest {
+    uint64 id = 1[(api.query) = "id"];
+}
+
+message DeleteTodosRequest {}
+
+message DeleteFinishedTodosRequest {}
+
+message DeleteNotFinishedTodosRequest {}
+
+service TodoService {
+    rpc AddTodo(AddRequest) returns (Response) {
+        option (api.post) = "/auth/todo";
+    }
+
+    rpc SetTodoFinished(SetTodoFinishedRequest) returns (Response) {
+        option (api.put) = "/auth/finished/todo";
+    }
+
+    rpc SetTodosFinished(SetTodosFinishedRequest) returns (Response) {
+        option (api.put) = "/auth/finished/todos";
+    }
+
+    rpc SetTodoNotFinished(SetTodoNotFinishedRequest) returns (Response) {
+        option (api.put) = "/auth/notfinished/todo";
+    }
+
+    rpc SetTodosNotFinished(SetTodosNotFinishedRequest) returns (Response) {
+        option (api.put) = "/auth/notfinished/todos";
+    }
+
+    rpc GetTodos(GetTodosRequest) returns (TodoResponse) {
+        option (api.get) = "/auth/todos";
+    }
+
+    rpc GetTodosFinished(GetTodosFinishedRequest) returns (TodoResponse) {
+        option (api.get) = "/auth/finished/todos";
+    }
+
+    rpc GetTodosNotFinished(GetTodosNotFinishedRequest) returns (TodoResponse) {
+        option (api.get) = "/auth/notfinished/todos";
+    }
+
+    rpc GetKeyTodos(GetKeyTodosRequest) returns (TodoResponse) {
+        option (api.get) = "/auth/key/todos";
+    }
+
+    rpc DeleteTodo(DeleteTodoRequest) returns (Response) {
+        option (api.delete) = "/auth/todo";
+    }
+
+    rpc DeleteTodos(DeleteTodosRequest) returns (Response) {
+        option (api.delete) = "/auth/todos";
+    }
+
+    rpc DeleteFinishedTodos(DeleteFinishedTodosRequest) returns (Response) {
+        option (api.delete) = "/auth/finished/todos";
+    }
+
+    rpc DeleteNotFinishedTodos(DeleteNotFinishedTodosRequest) returns (Response) {
+        option (api.delete) = "/auth/notfinished/todos";
+    }
+}
