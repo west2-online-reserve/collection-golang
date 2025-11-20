@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"time"
@@ -10,23 +11,38 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// 存储标题和正文
 type Inform struct {
 	Title   string `json:"title"`
 	Passage string `json:"passage"`
-	Time    string `json:"time"`
-	Author  string `json:"author"`
-	Url     string `json:"url"`
 }
 
 func main() {
-	var urls []string
 	var times []string
-	for count := 2; count < 15; count++ {
+	var urls []string
+	//创建文件，保存内容
+	file, err := os.Create("./fzu.txt")
+	if err != nil {
+		fmt.Println("creat err", err)
+		return
+	}
+	defer file.Close()
+	var flag = 1
+	for count := 420; count >= 300; count-- {
+		//爬取时间和对应时间的网址
 		urls, times = SpiderUrlAndTime(strconv.Itoa(count))
-		for i, v := range times {
+		for i, _ := range urls {
 			if isTrueTime(times[i]) {
-				fmt.Println(i, v)
-				fmt.Println(urls[i])
+				//正文所在地址
+				newUrl := "https://info22.fzu.edu.cn/" + urls[i]
+				//爬取正文
+				a := SpiderInclude(newUrl)
+				//写入文件
+				file.WriteString("文件" + strconv.Itoa(flag) + "\n")
+				file.WriteString("时间" + times[i] + "\n")
+				file.WriteString("标题" + a.Title + "\n")
+				file.WriteString("正文" + a.Passage)
+				flag++
 			}
 		}
 	}
@@ -35,7 +51,7 @@ func main() {
 // 读取时间与正文所在网址
 func SpiderUrlAndTime(strPage string) (UrlTemp, TimeTemp []string) {
 	client := http.Client{}
-	Url := "https://jwch.fzu.edu.cn/gsgg/%s.htm"
+	Url := "https://info22.fzu.edu.cn/lm_list.jsp?totalpage=1098&PAGENUM=%s&urltype=tree.TreeTempUrl&wbtreeid=1460"
 	finalUrl := fmt.Sprintf(Url, strPage)
 	req, err := http.NewRequest("GET", finalUrl, nil)
 	if err != nil {
@@ -52,14 +68,12 @@ func SpiderUrlAndTime(strPage string) (UrlTemp, TimeTemp []string) {
 	if err != nil {
 		fmt.Println("docDetails err", err)
 	}
-	//body > div.page > div.w-main > div.wapper > div > div > div:nth-child(3) > div.box-gl.clearfix > ul > li:nth-child(20) > a
-	//body > div.page > div.w-main > div.wapper > div > div > div:nth-child(3) > div.box-gl.clearfix > ul > li:nth-child(1)
-	//body > div.page > div.w-main > div.wapper > div > div > div:nth-child(3) > div.box-gl.clearfix > ul > li:nth-child(10) > a
-	docDetails.Find("body > div.page > div.w-main > div.wapper > div > div > div:nth-child(3) > div.box-gl.clearfix > ul >li").
+	//寻找正文的url和时间
+	docDetails.Find("body > div.sy-content > div > div.right.fr > div.list.fl > ul > li").
 		Each(func(i int, s *goquery.Selection) {
-			Url := s.Find("a")
+			Url := s.Find("p > a:nth-child(2)")
 			Url2, ok := Url.Attr("href")
-			Time := s.Find("span")
+			Time := s.Find("p > span")
 			TimeRe, _ := regexp.Compile(`\d{4}-\d{2}-\d{2}`)
 			if ok {
 				UrlTemp = append(UrlTemp, Url2)
@@ -81,7 +95,7 @@ func isTrueTime(strTime string) bool {
 }
 
 // 爬取正文
-func SpiderInclude(url string) {
+func SpiderInclude(url string) Inform {
 	client := http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -97,5 +111,8 @@ func SpiderInclude(url string) {
 	if err != nil {
 		fmt.Println("docDetails2 err", err)
 	}
-	title := docDetails.Find("").Text()
+	var Data Inform
+	Data.Title = docDetails.Find("body > div.wa1200w > div.conth > form > div.conth1").Text()
+	Data.Passage = docDetails.Find("#vsb_content > div").Text()
+	return Data
 }
