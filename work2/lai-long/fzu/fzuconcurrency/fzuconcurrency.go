@@ -1,3 +1,6 @@
+// 1m28.46624258s
+// 24m57.047984887s
+// 加速比：16.92
 package main
 
 import (
@@ -11,19 +14,18 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// 24m57.047984887s
-// 存储标题和正文
 type Inform struct {
 	Title   string `json:"title"`
 	Passage string `json:"passage"`
 }
 
 func main() {
-	start := time.Now()
+	ch := make(chan bool, 10000)
 	var times []string
 	var urls []string
+	start := time.Now()
 	//创建文件，保存内容
-	file, err := os.Create("./fzu.txt")
+	file, err := os.Create("./fzuconcurrency.txt")
 	if err != nil {
 		fmt.Println("creat err", err)
 		return
@@ -33,26 +35,40 @@ func main() {
 	for count := 420; count >= 300; count-- {
 		//爬取时间和对应时间的网址
 		urls, times = SpiderUrlAndTime(strconv.Itoa(count))
+		//go Spiders(urls, times, file, flag,ch)
 		for i, _ := range urls {
 			if isTrueTime(times[i]) {
-				//正文所在地址
 				newUrl := "https://info22.fzu.edu.cn/" + urls[i]
-				//爬取正文
-				a := SpiderInclude(newUrl)
-				//写入文件
-				file.WriteString("文件" + strconv.Itoa(flag) + "\n")
-				file.WriteString("时间" + times[i] + "\n")
-				file.WriteString("标题" + a.Title + "\n")
-				file.WriteString("正文" + a.Passage)
-				flag++
+				go Spiders(newUrl, times[i], file, &flag, ch)
 			}
 		}
 	}
-	end := time.Since(start)
-	fmt.Println(end)
+	for count := 420; count >= 300; count-- {
+		urls, _ = SpiderUrlAndTime(strconv.Itoa(count))
+		for i, _ := range urls {
+			if isTrueTime(times[i]) {
+				<-ch
+			}
+		}
+	}
+	elapsed := time.Since(start)
+	fmt.Println("elapsed", elapsed)
 }
 
-// 读取时间与正文所在网址
+func Spiders(urls, times string, file *os.File, flag *int, ch chan bool) {
+	//正文所在地址
+	//爬取正文
+	a := SpiderInclude(urls)
+	//写入文件
+	file.WriteString("文件" + strconv.Itoa(*flag) + "\n")
+	file.WriteString("时间" + times + "\n")
+	file.WriteString("标题" + a.Title + "\n")
+	file.WriteString("正文" + a.Passage)
+	*flag++
+	if ch != nil {
+		ch <- true
+	}
+}
 func SpiderUrlAndTime(strPage string) (UrlTemp, TimeTemp []string) {
 	client := http.Client{}
 	Url := "https://info22.fzu.edu.cn/lm_list.jsp?totalpage=1098&PAGENUM=%s&urltype=tree.TreeTempUrl&wbtreeid=1460"
