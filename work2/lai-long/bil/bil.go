@@ -64,6 +64,46 @@ type Result struct {
 	Message string `json:"message"`
 }
 
+type Results struct {
+	Code int64 `json:"code"`
+	Data struct {
+		Cursor struct {
+			AllCount        int64  `json:"all_count"`
+			IsBegin         bool   `json:"is_begin"`
+			IsEnd           bool   `json:"is_end"`
+			Mode            int64  `json:"mode"`
+			ModeText        string `json:"mode_text"`
+			Name            string `json:"name"`
+			Next            int64  `json:"next"`
+			PaginationReply struct {
+				NextOffset string `json:"next_offset"`
+			} `json:"pagination_reply"`
+			Prev        int64   `json:"prev"`
+			SessionID   string  `json:"session_id"`
+			SupportMode []int64 `json:"support_mode"`
+		} `json:"cursor"`
+		Replies []struct {
+			Content struct {
+				Device  string        `json:"device"`
+				JumpURL struct{}      `json:"jump_url"`
+				MaxLine int64         `json:"max_line"`
+				Members []interface{} `json:"members"`
+				Message string        `json:"message"`
+				Plat    int64         `json:"plat"`
+			} `json:"content"`
+			Count  int64 `json:"count"`
+			Folder struct {
+				HasFolded bool   `json:"has_folded"`
+				IsFolded  bool   `json:"is_folded"`
+				Rule      string `json:"rule"`
+			} `json:"folder"`
+			Like int64 `json:"like"`
+			Type int64 `json:"type"`
+		} `json:"replies"`
+	} `json:"data"`
+	Message string `json:"message"`
+}
+
 type Parameters struct {
 	Oid            string `json:"oid"`
 	Type           string `json:"type"`
@@ -86,24 +126,45 @@ func main() {
 	}
 	url := "https://api.bilibili.com/x/v2/reply/wbi/main?"
 	GetWrid(&params)
-	Spider(&url, &params)
-	fmt.Println("分割")
-	fmt.Println("分割")
-	fmt.Println("分割")
-	time.Sleep(1 * time.Second)
-	params.Pagination_str = "%7B%22offset%22:%22CAESEDE4MDYyMTIzNjY4NDA2MDAiAggB%22%7D"
-	fmt.Println("分割")
-	fmt.Println("分割")
-	fmt.Println("分割")
-	url = "https://api.bilibili.com/x/v2/reply/wbi/main?"
-	GetWrid(&params)
-	Spider(&url, &params)
+	Creaturl(&url, &params)
+	Spider(url)
+	fmt.Println("分割-----------------------------------------------")
+	//{"offset":"CAESEDE4MDYyMTgxMTY4MDYxNzIiAggB"}
+	url3 := "https://api.bilibili.com/x/v2/reply/wbi/main?oid=420981979&type=1&mode=3&pagination_str=%7B" +
+		"%22offset%22:%22CAESEDE4MDYyMTg5NDg0NDk3MzgiAggB%22%7D&plat=1&web_location=1315875&w_rid=9d1e07afd7513e58c03ef8d560d35913&wts=1763885697"
+	Spider(url3)
+	fmt.Println("分割-----------------------------------------------")
+	//爬二级评论
+	for i := 1; ; i++ {
+		url2 := "https://api.bilibili.com/x/v2/reply/reply?oid=420981979&type=1&root=5547452670&ps=10&pn=" + strconv.Itoa(i) + "&web_location=333.788"
+		SpiderSonComment(url2)
+		time.Sleep(1 * time.Second)
+	}
 }
 
-func Spider(url *string, params *Parameters) {
-	Creaturl(url, params)
+func SpiderSonComment(url string) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", *url, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var second Results
+	_ = json.Unmarshal(body, &second)
+	for _, v := range second.Data.Replies {
+		fmt.Println("二级", v.Content)
+	}
+}
+
+func Spider(url string) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		fmt.Println("req err", err)
 		return
@@ -124,9 +185,6 @@ func Spider(url *string, params *Parameters) {
 	_ = json.Unmarshal(bodyText, &result)
 	for _, v := range result.Data.Replies {
 		fmt.Println("一级", v.Content.Message)
-		for _, vv := range v.Replies {
-			fmt.Println("二级", vv.Content.Message)
-		}
 	}
 }
 
