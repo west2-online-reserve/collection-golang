@@ -10,19 +10,20 @@ import (
 	"time"
 )
 
+// 接收主评论的结构体
 type Result struct {
-	Code int64 `json:"code"`
-	Data struct {
+	Code int64    `json:"code"` //状态
+	Data struct { //数据
 		Cursor struct {
-			AllCount        int64  `json:"all_count"`
-			IsBegin         bool   `json:"is_begin"`
-			IsEnd           bool   `json:"is_end"`
+			AllCount        int64  `json:"all_count"` //评论总数
+			IsBegin         bool   `json:"is_begin"`  //是否为第一页
+			IsEnd           bool   `json:"is_end"`    //是否为最后一页
 			Mode            int64  `json:"mode"`
 			ModeText        string `json:"mode_text"`
 			Name            string `json:"name"`
 			Next            int64  `json:"next"`
 			PaginationReply struct {
-				NextOffset string `json:"next_offset"`
+				NextOffset string `json:"next_offset"` //下一页
 			} `json:"pagination_reply"`
 			Prev        int64   `json:"prev"`
 			SessionID   string  `json:"session_id"`
@@ -38,6 +39,7 @@ type Result struct {
 				Plat    int64         `json:"plat"`
 			} `json:"content"`
 			Count  int64 `json:"count"`
+			Rpid   int64 `json:"rpid"` //id
 			Folder struct {
 				HasFolded bool   `json:"has_folded"`
 				IsFolded  bool   `json:"is_folded"`
@@ -64,6 +66,7 @@ type Result struct {
 	Message string `json:"message"`
 }
 
+// 接收二级评论的结构体
 type Results struct {
 	Code int64 `json:"code"`
 	Data struct {
@@ -104,107 +107,128 @@ type Results struct {
 	Message string `json:"message"`
 }
 
-type Parameters struct {
-	Oid            string `json:"oid"`
-	Type           string `json:"type"`
-	Mode           string `json:"mode"`
-	Pagination_str string `json:"pagination_str"`
-	Plat           string `json:"plat"`
-	Web_location   string `json:"web_location"`
-	w_rid          string `json:"w_rid"`
-	wts            string `json:"wts"`
-}
+var (
+	all_count    int64
+	total_pages  int
+	current_page int
+)
 
 func main() {
-	params := Parameters{
-		Oid:            "420981979",
-		Type:           "1",
-		Mode:           "3",
-		Web_location:   "1315875",
-		Plat:           "1",
-		Pagination_str: `{"offset":""}`,
-	}
-	url := "https://api.bilibili.com/x/v2/reply/wbi/main?"
-	GetWrid(&params)
-	Creaturl(&url, &params)
-	Spider(url)
-	fmt.Println("分割-----------------------------------------------")
-	//{"offset":"CAESEDE4MDYyMTgxMTY4MDYxNzIiAggB"}
-	url3 := "https://api.bilibili.com/x/v2/reply/wbi/main?oid=420981979&type=1&mode=3&pagination_str=%7B" +
-		"%22offset%22:%22CAESEDE4MDYyMTg5NDg0NDk3MzgiAggB%22%7D&plat=1&web_location=1315875&w_rid=9d1e07afd7513e58c03ef8d560d35913&wts=1763885697"
-	Spider(url3)
-	fmt.Println("分割-----------------------------------------------")
-	//爬二级评论
-	for i := 1; ; i++ {
-		url2 := "https://api.bilibili.com/x/v2/reply/reply?oid=420981979&type=1&root=5547452670&ps=10&pn=" + strconv.Itoa(i) + "&web_location=333.788"
-		SpiderSonComment(url2)
-		time.Sleep(1 * time.Second)
+	fmt.Println("begin")
+	current_page = 1
+	nextOffset := CreatUrlAndSpider("")
+	for nextOffset != "" {
+		current_page++
+		time.Sleep(5 * time.Second)
+		nextOffset = CreatUrlAndSpider(nextOffset)
 	}
 }
 
-func SpiderSonComment(url string) {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println(err)
+// 进行爬取
+func CreatUrlAndSpider(offset string) string {
+	//生成评论所在的URL
+	wts := strconv.FormatInt(time.Now().Unix(), 10)
+	var paginationStr string
+	//获取pn
+	if offset == "" {
+		paginationStr = "%7B%22offset%22%3A%22%22%7D"
+	} else {
+		paginationStr = "%7B%22offset%22%3A%22" + offset + "%22%7D"
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
+	//获取wrid
+	v := "mode=3&oid=420981979&pagination_str=" + paginationStr + "&plat=1&seek_rpid=&type=1&web_location=1315875&wts=" + wts
+	a := "ea1db124af3c7062474693fa704f4ff8"
+	data := []byte(v + a)
+	has := md5.Sum(data)
+	w_rid := fmt.Sprintf("%x", has)
+	var Url string
+	//拼接url
+	if offset == "" {
+		Url = "https://api.bilibili.com/x/v2/reply/wbi/main?oid=420981979&type=1&mode=3&pagination_str=%7B%22offset%22:%22%22%7D&plat=1&seek_rpid=&web_location=1315875&w_rid=" + w_rid + "&wts=" + wts
+	} else {
+		Url = "https://api.bilibili.com/x/v2/reply/wbi/main?oid=420981979&type=1&mode=3&pagination_str=%7B%22offset%22:%22" + offset + "%22%7D&plat=1&web_location=1315875&w_rid=" + w_rid + "&wts=" + wts
 	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	var second Results
-	_ = json.Unmarshal(body, &second)
-	for _, v := range second.Data.Replies {
-		fmt.Println("二级", v.Content)
-	}
+	fmt.Printf("Page %d---------------\n", current_page)
+	return GetMessage(Url)
 }
-
-func Spider(url string) {
+func GetMessage(str string) string {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
+	//发送请求
+	req, err := http.NewRequest("GET", str, nil)
 	if err != nil {
-		fmt.Println("req err", err)
-		return
+		fmt.Println("req1 err:", err)
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
+	//获取返回值
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("resp err", err)
-		return
+		fmt.Println("resp1 err:", err)
 	}
 	defer resp.Body.Close()
 	bodyText, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("io err", err)
-		return
+		fmt.Println("io err:", err)
 	}
 	var result Result
-	_ = json.Unmarshal(bodyText, &result)
-	for _, v := range result.Data.Replies {
-		fmt.Println("一级", v.Content.Message)
+	err = json.Unmarshal(bodyText, &result)
+	if err != nil {
+		fmt.Println("json err:", err)
 	}
+	if all_count == 0 {
+		all_count = result.Data.Cursor.AllCount
+		total_pages = int(all_count) / 20
+		fmt.Printf("All comments: %d, pages: %d\n", all_count, total_pages)
+	}
+	fmt.Println("一级：", len(result.Data.Replies))
+	for _, result := range result.Data.Replies {
+		rpid := result.Rpid
+		count := result.Count
+		fmt.Printf("主评论: %s\n", result.Content.Message)
+		if count > 0 {
+			fmt.Println("二级：", count)
+			GetSonComment(rpid, int(count))
+			fmt.Printf("----------------------")
+		}
+		fmt.Println()
+	}
+	var nextOffset string
+	if result.Data.Cursor.PaginationReply.NextOffset != "" && !result.Data.Cursor.IsEnd {
+		nextOffset = result.Data.Cursor.PaginationReply.NextOffset
+	} else {
+		nextOffset = ""
+		fmt.Println("ended")
+	}
+	return nextOffset
 }
 
-func Creaturl(url *string, params *Parameters) {
-	*url = *url + "oid=" + params.Oid + "&type=" + params.Type + "&mode=" + params.Mode + "&pagination_str=" +
-		params.Pagination_str + "&plat=" + params.Plat + "&seek_rpid=&web_location=" + params.Web_location +
-		"&w_rid=" + params.w_rid + "&wts=" + params.wts
-	fmt.Println(*url)
-}
-func Getwts(params *Parameters) {
-	temp := time.Now().Unix()
-	wtsTemp := strconv.Itoa(int(temp))
-	params.wts = wtsTemp
-}
-func GetWrid(params *Parameters) {
-	Getwts(params)
-	queryString := "mode=" + params.Mode + "&oid=" + params.Oid + "&pagination_str=%7B%22offset%22%3A%22%22%7D&plat=" + params.Plat +
-		"&seek_rpid=&type=" + params.Type + "&web_location=1315875&wts=" + params.wts
-	salt := "ea1db124af3c7062474693fa704f4ff8"
-	finalString := queryString + salt
-	hash := md5.Sum([]byte(finalString))
-	params.w_rid = fmt.Sprintf("%x", hash)
+// 通过主评论id获取子评论内容
+func GetSonComment(rootRpid int64, totalCount int) {
+	pages := (totalCount + 9) / 10
+	for page := 1; page <= pages; page++ {
+		url := fmt.Sprintf("https://api.bilibili.com/x/v2/reply/reply?oid=420981979&type=1&root=%d&ps=10&pn=%d&web_location=333.788", rootRpid, page)
+		time.Sleep(5 * time.Second)
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			fmt.Println("req sonComment err", err)
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("req sonComment err", err)
+		}
+		bodyText, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			fmt.Println("resp sonComment err", err)
+		}
+		var resultList Results
+		err = json.Unmarshal(bodyText, &resultList)
+		if err != nil {
+			fmt.Println("JSON sonComments err:", err)
+		}
+		for i, reply := range resultList.Data.Replies {
+			fmt.Printf("二级 %d: %s\n", (page-1)*10+i+1, reply.Content.Message)
+		}
+	}
 }
