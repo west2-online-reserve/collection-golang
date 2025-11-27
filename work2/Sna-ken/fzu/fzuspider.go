@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 const (
@@ -16,11 +17,13 @@ const (
 	PASSWORD = "Aa133944"
 	HOST     = "192.168.0.3"
 	PORT     = "3306"
-	FZU      = "FZUnews"
+	DBNAME   = "fzunews"
 )
 
 func main() {
 	client := http.Client{} //创建客户端
+	InitDB()
+	defer DB.Close()
 
 	Normal(client)      //普通爬虫耗时 32m44.189886s
 	Concurrency(client) //并发爬虫耗时 2m32.7746359s
@@ -93,7 +96,7 @@ func Spider(client http.Client, URL string, ch chan bool) {
 			author := s.Find(" p > a.lm_a").Text()
 			text := s.Find("p > a:nth-child(2)")
 			textURL, ok := text.Attr("href")
-			var fzu_news FZUnews
+			var fzu_news fzunews
 			if ok {
 				text, click := Find_MainText(client, textURL)
 				fzu_news.Date = date
@@ -107,6 +110,7 @@ func Spider(client http.Client, URL string, ch chan bool) {
 				return
 			}
 		})
+	fmt.Println("insert seccuss")
 	if ch != nil {
 		ch <- true
 	}
@@ -165,7 +169,7 @@ func Find_MainText(client http.Client, textURl string) (maintext, click string) 
 	return
 }
 
-type FZUnews struct {
+type fzunews struct {
 	Date   string `json:"date"`
 	Title  string `json:"title"`
 	Author string `json:"author"`
@@ -176,14 +180,15 @@ type FZUnews struct {
 var DB *sql.DB
 
 func InitDB() {
-	path := strings.Join([]string{USERNAME, ":", PASSWORD, "@tcp(", HOST, ":", PORT, ")/", FZU, "?charset=utf8"}, "")
+	path := strings.Join([]string{USERNAME, ":", PASSWORD, "@tcp(", HOST, ":", PORT, ")/", DBNAME, "?charset=utf8"}, "")
 	var err error
 	DB, err = sql.Open("mysql", path)
 	if err != nil {
 		fmt.Println("connect fail", err)
 	}
-	DB.SetConnMaxLifetime(time.Minute * 10)
-	DB.SetMaxIdleConns(5)
+	DB.SetConnMaxLifetime(time.Minute * 30)
+	DB.SetMaxIdleConns(50)
+	DB.SetMaxOpenConns(120)
 	if err := DB.Ping(); err != nil {
 		fmt.Println("opon database fail", err)
 		return
@@ -191,7 +196,7 @@ func InitDB() {
 	fmt.Println("connect success")
 }
 
-func InsertDate(fzu_news FZUnews) bool {
+func InsertDate(fzu_news fzunews) bool {
 	if DB == nil {
 		fmt.Println("DB is uninitialized")
 		return false
@@ -201,14 +206,14 @@ func InsertDate(fzu_news FZUnews) bool {
 		fmt.Println("begin err", err)
 		return false
 	}
-	stmt, err := tx.Prepare("INSERT INTO info_date(`Author`,`Date`,`Title`,`Text`)VALUES(?,?,?,?)")
+	stmt, err := tx.Prepare("INSERT INTO info_data(`Date`,`Title`,`Author`,`Text`,`Click`)VALUES(?,?,?,?,?)")
 	if err != nil {
 		fmt.Println("prepare fail", err)
 		return false
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(fzu_news.Author, fzu_news.Date, fzu_news.Title, fzu_news.Text)
+	_, err = stmt.Exec(fzu_news.Date, fzu_news.Title, fzu_news.Author, fzu_news.Text, fzu_news.Click)
 	if err != nil {
 		fmt.Println("exec fail", err)
 		tx.Rollback()
