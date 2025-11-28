@@ -14,7 +14,7 @@ import (
 // 2025年11月27的时候页数是303到420，但是再多发6条通知的话页数要改了
 // 是的过了一天现在2020的第一条被挤到421页了
 const (
-	startPage = 421
+	startPage = 303
 	endPage   = 421
 	baseURL   = "https://info22.fzu.edu.cn/lm_list.jsp?wbtreeid=1460"
 )
