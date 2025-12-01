@@ -1,0 +1,17 @@
+1.
+数组：固定长度，值类型
+切片：动态长度，引用类型
+特性	数组	切片
+长度	固定，编译时确定	动态，运行时可变
+类型	值类型（赋值是拷贝）	引用类型（赋值是共享底层数组）
+声明	var arr [5]int	var slice []int
+内存	整个数组在栈上分配	头部在栈，数据在堆
+传递	传值（完整拷贝）	传引用（轻量级）
+性能	编译时优化更好	运行时动态分配
+2.创建切片的方式
+（1）var slice []int
+(2) var slice:=make([]int,2)
+
+3.map
+(1)var mapName map[keyType]valueType
+(2)var mapName=make(map[keyType]valueType)
