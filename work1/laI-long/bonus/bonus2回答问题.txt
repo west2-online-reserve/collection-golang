@@ -1,0 +1,13 @@
+1、切片的内存地址汇会变，数组不会
+2、切片共享一个底层数组，数组没有
+3、切片的零值为nil，数组的零值是元素类型的零值
+
+创建切片的方法有三种
+1、使用make
+2、节选数组var slicce=arr[1:5]
+3、直接创建var slice=[ ]int{1,2,3}
+
+map有2种
+1、make(map[type1]type2
+2、var map = map[type1] type2{
+type1:type2} 
