@@ -1,1 +1,1 @@
-https://github.com/Koukoe/TODO-llist
+https://github.com/Koukoe/TODO-list
