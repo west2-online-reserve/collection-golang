@@ -9,13 +9,25 @@ import (
 	"encoding/json"
 )
 
+const pageSize = 50
+
 func main() {
-	// url := "https://summer.ospp.ac.cn/2025/api/getProDetail"
-	// Request(url)
-	url2 := "https://summer.ospp.ac.cn/2025/api/getProList"
-	RequestList(url2)
+	file, _ := os.Create("data.json")
+	defer file.Close()
+	file.WriteString("[\n") // 左括号
+
+	url := "https://summer.ospp.ac.cn/2025/api/getProList"
+	pageNum := 1
+
+	adjust := true
+	for adjust == true {
+		adjust = RequestList(url, pageNum, file)
+		pageNum++
+	}
+	file.WriteString("]")
 }
 
+// rows中的具体数据
 type Info struct {
 	ProgramCode string `json:"programCode"`
 	Name string `json:"programName"`
@@ -26,17 +38,19 @@ type Info struct {
 
 // 返回的JSON数据分为code, message, rows(我们需要的存数据的数组)
 type Response struct {
+	Total int `json:"total"` // 总项目数
 	Code int `json:"code"`
 	Msg string `json:"message"`
-	Rows []Info `json:"rows"`
+	Rows []Info `json:"rows"` // 需要的数据
 }
 
-func RequestList(url string) {
+func RequestList(url string, pageNum int, file *os.File) bool {
 	// 定义请求
-	request, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(`{"pageNum":1,"pageSize":50}`)))
+	jsonStr := fmt.Sprintf(`{"pageNum":%d,"pageSize":%d}`, pageNum, pageSize)
+	request, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		fmt.Println("Error occured in RequestList:", err)
-		return
+		return false
 	}
 
 	// 设置请求头
@@ -47,7 +61,7 @@ func RequestList(url string) {
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
 		fmt.Println("Error occured in get response:", err)
-		return
+		return false
 	}
 	defer resp.Body.Close()
 
@@ -57,14 +71,17 @@ func RequestList(url string) {
 	// 将获取的JSON数据反序列化为[code, message, rows(数组)]
 	var res Response
 	_ = json.Unmarshal(data, &res)
-	// fmt.Println(res)
-
-	file, _ := os.Create("data.json")
-	defer file.Close()
 
 	// 从数组中获取数据
 	for _, item := range res.Rows {
 		byteJSON, _ := json.Marshal(item)	
 		file.WriteString(string(byteJSON))
+		file.WriteString(",\n")
 	}
+
+	// 判断是否继续
+	if (pageNum * pageSize >= res.Total) {
+		return false
+	}
+	return true
 }
