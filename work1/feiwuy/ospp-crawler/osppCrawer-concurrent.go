@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	pageSize = 50 // 最大页数
+	pageSize = 50 // 每次读取项目数
 	MAXCON = 8 // 最大线程数
 )
 
@@ -70,15 +70,15 @@ type Info struct {
 // 返回的JSON数据分为code, message, rows(我们需要的存数据的数组)
 type Response struct {
 	Total int `json:"total"` // 总项目数
-	Code int `json:"code"`
-	Msg string `json:"message"`
+	// Code int `json:"code"`
+	// Msg string `json:"message"`
 	Rows []Info `json:"rows"` // 需要的数据
 }
 
 // 获取总的项目数, 也可以对RequestList改造, 不过我不想重写就这样吧
 func GetTotal(url string) int {
 	// 定义请求
-	jsonStr := fmt.Sprintf(`{"pageNum":%d,"pageSize":%d}`, 1, pageSize)
+	jsonStr := fmt.Sprintf(`{"pageNum":%d,"pageSize":%d}`, 1, 1)
 	request, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		fmt.Println("Error occured in RequestList:", err)
@@ -100,16 +100,11 @@ func GetTotal(url string) int {
 	// 获取返回的数据([]byte格式)
 	data, _ := io.ReadAll(resp.Body)
 
-	// 将获取的JSON数据反序列化为[code, message, rows(数组)]
-	var res Response
+	// 将获取的JSON数据反序列化为total:
+	var res struct{Total int `json:"total"`}
 	err = json.Unmarshal(data, &res)
 	if err != nil {
 		fmt.Println("Error occured in Unmarshal:", err)
-		return 0
-	}
-
-	// 若没有数据直接返回
-	if len(res.Rows) == 0 {
 		return 0
 	}
 

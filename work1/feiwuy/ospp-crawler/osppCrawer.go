@@ -92,7 +92,7 @@ func RequestList(url string, pageNum int) ([]Info, bool) {
 
 	// 判断是否继续
 	if (pageNum * pageSize >= res.Total) {
-		return nil, false
+		return res.Rows, false
 	}
 	return res.Rows, true
 }
