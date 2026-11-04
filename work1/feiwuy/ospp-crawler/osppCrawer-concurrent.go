@@ -18,7 +18,12 @@ const (
 func main() {
 	url := "https://summer.ospp.ac.cn/2025/api/getProList"
 
-	totalNum := GetTotal(url) // 获取项目数
+	res, err := RequestList(url, 1)
+	if err != nil {
+		fmt.Println("Error occured in get total:", err)
+		return
+	}
+	totalNum := res.Total // 获取项目数
 	pages := (totalNum + pageSize - 1) / pageSize // 获取总页数
 
 	dataSlice := make([][]Info, pages) // 一个长度为pages的类型为[]Info的切片
@@ -32,12 +37,19 @@ func main() {
 		go func(i int) {
 			defer wait.Done() // 结束后排队次数减1
 			defer func() { <-maxCon}() // 占位少1, defer需要调用函数, 定义在参数保证只调用一次
-			rows, err := RequestList(url, i+1) // 获取一页的内容, 编号从1开始, 下标从0开始
+			res, err := RequestList(url, i+1) // 获取一页的内容, 编号从1开始, 下标从0开始
 			if err != nil {
 				fmt.Println("Error occured in RequestList:", err)
 				return
 			}
-			dataSlice[i] = rows // 将rows的值赋值给对应下标的切片, 为什么要用切片组是为了防止多线程同时对切片操作时导致错误(内存覆盖, 重叠...)
+
+			// 如果返回的数组为空
+			if len(res.Rows) <= 0 {
+				fmt.Println(err)
+				return
+			}
+
+			dataSlice[i] = res.Rows // 将rows的值赋值给对应下标的切片, 为什么要用切片组是为了防止多线程同时对切片操作时导致错误(内存覆盖, 重叠...)
 		}(i)
 	}
 	wait.Wait() // 等待进程完成
@@ -75,43 +87,7 @@ type Response struct {
 	Rows []Info `json:"rows"` // 需要的数据
 }
 
-// 获取总的项目数, 也可以对RequestList改造, 不过我不想重写就这样吧
-func GetTotal(url string) int {
-	// 定义请求
-	jsonStr := fmt.Sprintf(`{"pageNum":%d,"pageSize":%d}`, 1, 1)
-	request, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
-	if err != nil {
-		fmt.Println("Error occured in RequestList:", err)
-		return 0
-	}
-
-	// 设置请求头
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0")
-
-	// 发送请求
-	resp, err := http.DefaultClient.Do(request)
-	if err != nil {
-		fmt.Println("Error occured in get response:", err)
-		return 0
-	}
-	defer resp.Body.Close()
-
-	// 获取返回的数据([]byte格式)
-	data, _ := io.ReadAll(resp.Body)
-
-	// 将获取的JSON数据反序列化为total:
-	var res struct{Total int `json:"total"`}
-	err = json.Unmarshal(data, &res)
-	if err != nil {
-		fmt.Println("Error occured in Unmarshal:", err)
-		return 0
-	}
-
-	return res.Total
-}
-
-func RequestList(url string, pageNum int) ([]Info, error) {
+func RequestList(url string, pageNum int) (*Response, error) {
 	// 定义请求
 	jsonStr := fmt.Sprintf(`{"pageNum":%d,"pageSize":%d}`, pageNum, pageSize)
 	request, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
@@ -143,10 +119,5 @@ func RequestList(url string, pageNum int) ([]Info, error) {
 		return nil, err
 	}
 
-	// 若没有数据直接返回
-	if len(res.Rows) == 0 {
-		return nil, err
-	}
-
-	return res.Rows, nil
+	return &res, nil
 }
