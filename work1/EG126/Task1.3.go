@@ -1,4 +1,4 @@
-//3.luogu_P5737：https://www.luogu.com.cn/problem/P5737
+//3.洛谷P5737：https://www.luogu.com.cn/problem/P5737
 
 package main
 
