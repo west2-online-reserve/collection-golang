@@ -1,4 +1,4 @@
-//2.洛谷P1046：https://www.luogu.com.cn/problem/P1046
+//2.luogu_P1046：https://www.luogu.com.cn/problem/P1046
 
 package main
 

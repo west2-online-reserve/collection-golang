@@ -13,20 +13,25 @@ import (
 )
 
 const (
-	apiurl string = "https://summer.ospp.ac.cn/2025/api/getProList"
-	pdfurl string = "https://summer.ospp.ac.cn/2025/api/publicApplication"
+	apiUrl string = "https://summer.ospp.ac.cn/2025/api/getProList"
+	pdfUrl string = "https://summer.ospp.ac.cn/2025/api/publicApplication"
 )
 
-var ToDownloadpdf bool = true
+var ToDownloadPDF bool = true //是否下载PDF
 
 func main() {
-	client := &http.Client{}
-	pages := map[int][]pack.Rows{} //确保顺序保持不变
-	sem := make(chan struct{}, 10) //手动限制最多允许10个goroutine同时运行 加速比大致在10
-	done := make(chan struct{}, 1)
-	var wg sync.WaitGroup
-	var mu sync.Mutex  //避免并发map写入
-	var once sync.Once //Ai 指导使用once 避免多个goroutine 同时发送信号导致堵塞
+	client := &http.Client{} //统一HTTP客户端
+
+	//并发保护
+	pages := map[int][]pack.Rows{} //保存分页数据
+	var mu sync.Mutex              //避免并发map写入
+
+	//并发控制
+	sem := make(chan struct{}, 10) // 限制最多允许10个goroutine同时运行 加速比大致在10
+	var wg sync.WaitGroup          //等待所有goroutine结束
+	//任务完成控制
+	done := make(chan struct{}, 1) // 终止信号，结束循环
+	var once sync.Once             //确保每个操作只执行一次
 loop:
 	for pageNum := 1; ; pageNum++ {
 		select {
@@ -37,7 +42,7 @@ loop:
 			go func(pageNum int) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				resp, err := pack.Fetch(pageNum, apiurl, client)
+				resp, err := pack.Fetch(pageNum, apiUrl, client)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -46,25 +51,25 @@ loop:
 				if resp.StatusCode != 200 {
 					return
 				}
-				resp_body, err := io.ReadAll(resp.Body)
+				respBody, err := io.ReadAll(resp.Body)
 				if err != nil {
 					fmt.Println("数据读取错误", err)
 					return
 				}
-				resp_data := pack.Response{}
-				err = json.Unmarshal(resp_body, &resp_data)
+				respData := pack.Response{}
+				err = json.Unmarshal(respBody, &respData)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				if len(resp_data.Rows) == 0 {
+				if len(respData.Rows) == 0 {
 					once.Do(func() {
 						close(done)
 					})
 					return
 				}
 				mu.Lock()
-				pages[pageNum] = resp_data.Rows
+				pages[pageNum] = respData.Rows
 				mu.Unlock()
 				fmt.Printf("第%d页完成\n", pageNum)
 			}(pageNum)
@@ -85,13 +90,13 @@ loop:
 	pack.SavetoDatabase(data, "data")
 
 	//json 格式保存
-	pack.Savetojson(data)
+	pack.SavetoJson(data)
 
 	//下载pdf申请书
-	if ToDownloadpdf {
+	if ToDownloadPDF {
 		fmt.Println("开始下载申请书PDF")
 		dir := "PDF"
-		os.MkdirAll(dir, 0755)
+		_ = os.MkdirAll(dir, 0755)
 		file, err := os.ReadFile("data.json")
 		if err != nil {
 			fmt.Println("读取json失败", err)
@@ -110,7 +115,7 @@ loop:
 			go func() {
 				defer func() { <-sem }()
 				defer wg.Done()
-				err := pack.Downloadpdf(pdfurl, client, row, dir)
+				err := pack.DownloadPDF(pdfUrl, client, row, dir)
 				if err != nil {
 					fmt.Println(err)
 					return

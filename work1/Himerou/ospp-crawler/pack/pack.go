@@ -31,19 +31,19 @@ type Request struct {
 	PageSize int `json:"pageSize"` // 每一页含有的数据数量
 	PageNum  int `json:"pageNum"`
 }
-type Request_pdf struct {
+type RequestPdf struct {
 	ProId int `json:"proId"`
 }
 
-func Buildbody(pageNum int) ([]byte, error) {
-	req_body := Request{}
-	req_body.PageNum = pageNum
-	req_body.PageSize = 50
-	req_josn, err := json.Marshal(req_body)
+func BuildBody(pageNum int) ([]byte, error) {
+	reqBody := Request{}
+	reqBody.PageNum = pageNum
+	reqBody.PageSize = 50
+	reqJson, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
 	}
-	return req_josn, nil
+	return reqJson, nil
 }
 
 func BuildRequest(method, url string, body []byte) (*http.Request, error) {
@@ -56,31 +56,31 @@ func BuildRequest(method, url string, body []byte) (*http.Request, error) {
 	return req, nil
 }
 
-func Fetch(pageNum int, url string, clinet *http.Client) (*http.Response, error) {
-	req_body, err := Buildbody(pageNum)
+func Fetch(pageNum int, url string, client *http.Client) (*http.Response, error) {
+	reqBody, err := BuildBody(pageNum)
 	if err != nil {
 		return nil, fmt.Errorf("请求体构建错误: %v", err)
 	}
 
-	req, err := BuildRequest("POST", url, req_body)
+	req, err := BuildRequest("POST", url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("请求构建错误: %v", err)
 	}
 
-	resp, err := clinet.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("响应错误: %v", err)
 	}
 	return resp, nil
 
 }
-func Downloadpdf(url string, client *http.Client, rows Rows, dir string) error {
-	req_body := Request_pdf{ProId: rows.ProId}
-	req_body_json, err := json.Marshal(req_body)
+func DownloadPDF(url string, client *http.Client, rows Rows, dir string) error {
+	reqBody := RequestPdf{ProId: rows.ProId}
+	reqBodyJson, err := json.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("请求体编码错误: %v", err)
 	}
-	req, err := BuildRequest("POST", url, req_body_json)
+	req, err := BuildRequest("POST", url, reqBodyJson)
 
 	if err != nil {
 		return fmt.Errorf("请求体构建错误: %v", err)
@@ -104,51 +104,43 @@ func Downloadpdf(url string, client *http.Client, rows Rows, dir string) error {
 		return nil
 	}
 
-	temp := path + "_temp"
-	out, err := os.Create(temp)
+	temp := path + "_tmp"
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		os.Remove(temp)
-		return fmt.Errorf("文件创建失败: %v", err)
+		return fmt.Errorf("数据读取失败: %w", err)
 	}
-	n, err := io.Copy(out, resp.Body)
+	if resp.ContentLength > 0 && int64(len(data)) != resp.ContentLength {
+		_ = os.Remove(temp)
+		return fmt.Errorf("ProID %d下载不完整%d/%d", rows.ProId, len(data), resp.ContentLength)
+	}
+	err = os.WriteFile(temp, data, 0644)
 	if err != nil {
-		out.Close()
-		os.Remove(temp)
-		return fmt.Errorf("数据复制失败: %v", err)
-	}
-	if resp.ContentLength > 0 && n != resp.ContentLength {
-		out.Close()
-		os.Remove(temp)
-		return fmt.Errorf("ProID %d下载不完整%d/%d", rows.ProId, n, resp.ContentLength)
-	}
-	err = out.Close()
-	if err != nil {
-		os.Remove(temp)
-		return fmt.Errorf("关闭文件失败: %v", err)
+		_ = os.Remove(temp)
+		return fmt.Errorf("文件写入失败: %w", err)
 	}
 	return os.Rename(temp, path)
 }
-func Savetojson(data Response) {
+func SavetoJson(data Response) {
 	file, err := os.Create("data.json")
 	if err != nil {
 		fmt.Println("文件创建失败", err)
 		return
 	}
 	defer file.Close()
-	data_json, err := json.MarshalIndent(data, "", "	")
+	dataJson, err := json.MarshalIndent(data, "", "	")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	_, err = file.Write(data_json)
+	_, err = file.Write(dataJson)
 	if err != nil {
 		fmt.Println("写入错误", err)
 		return
 	}
-	fmt.Println("json保存结束")
+	fmt.Println("JSON保存结束")
 }
-func SavetoDatabase(data Response, database_name string) {
-	db, err := sql.Open("sqlite", database_name)
+func SavetoDatabase(data Response, databaseName string) {
+	db, err := sql.Open("sqlite", databaseName)
 	if err != nil {
 		fmt.Println("数据库打开失败", err)
 	}
@@ -189,5 +181,5 @@ func SavetoDatabase(data Response, database_name string) {
 			return
 		}
 	}
-	fmt.Println("sqlite 保存结束")
+	fmt.Println("SQLite 保存结束")
 }

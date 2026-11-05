@@ -2,18 +2,20 @@ package main
 
 import "fmt"
 
+const chairHeight = 30
+
 func main() {
 	var temp int
-	var nums []int
+	nums := make([]int, 0, 10)
 	for i := 0; i < 10; i++ {
-		fmt.Scan(&temp)
+		_, _ = fmt.Scan(&temp)
 		nums = append(nums, temp)
 	}
 	count := 0
-	var max int
-	fmt.Scan(&max)
+	var maxHeight int
+	_, _ = fmt.Scan(&maxHeight)
 	for i := 0; i < 10; i++ {
-		if nums[i] <= max+30 {
+		if nums[i] <= maxHeight+chairHeight {
 			count++
 		}
 	}

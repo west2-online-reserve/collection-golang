@@ -3,10 +3,10 @@ package main
 import "fmt"
 
 func main() {
-	var S_y, E_y int
+	var startYear, endYear int
 	var list []int
-	fmt.Scan(&S_y, &E_y)
-	for i := S_y; i <= E_y; i++ {
+	fmt.Scan(&startYear, &endYear)
+	for i := startYear; i <= endYear; i++ {
 		if i%400 == 0 || (i%4 == 0 && i%100 != 0) {
 			list = append(list, i)
 		}

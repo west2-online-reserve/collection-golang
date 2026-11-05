@@ -1,4 +1,4 @@
-//1.洛谷P1001：https://www.luogu.com.cn/problem/P1001
+//1.luogu_P1001：https://www.luogu.com.cn/problem/P1001
 
 package main
 
