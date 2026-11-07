@@ -52,8 +52,11 @@ func main() {
 
 	fmt.Printf("\n共 %d 个项目, 已保存到 %s, 用时 %v\n", n, common.OutFile, time.Since(start))
 
-	downloadApplications(client, projects)
-	fmt.Printf("\n完成, 总用时 %v\n", time.Since(start))
+	// 传入参数pdf才下载申请书因为它们很多
+	if len(os.Args) > 1 && os.Args[1] == "pdf" {
+		downloadApplications(client, projects)
+		fmt.Printf("\n完成, 总用时 %v\n", time.Since(start))
+	}
 }
 
 func downloadApplications(client *http.Client, projects []common.Project) {
