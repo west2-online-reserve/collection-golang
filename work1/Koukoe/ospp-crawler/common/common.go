@@ -7,19 +7,26 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 const (
-	BaseURL   = "https://summer.ospp.ac.cn/2025/api/getProList"
-	PageSize  = 50
-	userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0"
-	OutFile   = "data.json"
+	BaseURL        = "https://summer.ospp.ac.cn/2025/api/getProList"
+	ApplicationURL = "https://summer.ospp.ac.cn/2025/api/publicApplication"
+	PageSize       = 50
+	userAgent      = "Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0"
+	OutFile        = "data.json"
+	ApplicationDir = "applications"
 )
 
 type listRequest struct {
 	PageSize int `json:"pageSize"`
 	PageNum  int `json:"pageNum"`
+}
+
+type applicationRequest struct {
+	ProId int `json:"proId"`
 }
 
 type listResponse struct {
@@ -30,6 +37,7 @@ type listResponse struct {
 }
 
 type row struct {
+	ProId           int    `json:"proId"`
 	ProgramCode     string `json:"programCode"`
 	ProgramName     string `json:"programName"`
 	OrgName         string `json:"orgName"`
@@ -38,6 +46,7 @@ type row struct {
 }
 
 type Project struct {
+	ProId           int    `json:"proId"`
 	ProgramCode     string `json:"programCode"`
 	ProgramName     string `json:"programName"`
 	OrgName         string `json:"orgName"`
@@ -96,12 +105,13 @@ func FetchPage(client *http.Client, pageNum int) ([]Project, int, error) {
 	}
 
 	if listResp.Code != http.StatusOK {
-		return nil, 0, fmt.Errorf("第 %d 页接口报错 %d: %s", pageNum, listResp.Code, listResp.Msg)
+		return nil, 0, fmt.Errorf("第 %d 页	HTTP %d: %s", pageNum, listResp.Code, listResp.Msg)
 	}
 
 	var projects []Project
 	for _, r := range listResp.Rows {
 		projects = append(projects, Project{
+			ProId:           r.ProId,
 			ProgramCode:     r.ProgramCode,
 			ProgramName:     r.ProgramName,
 			OrgName:         r.OrgName,
@@ -113,7 +123,7 @@ func FetchPage(client *http.Client, pageNum int) ([]Project, int, error) {
 	return projects, listResp.Total, nil
 }
 
-// Save 返回写入条数和error
+// Save 保存爬取到的数据, 返回写入条数和error
 func Save(projects []Project) (int, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
@@ -126,4 +136,52 @@ func Save(projects []Project) (int, error) {
 		return 0, err
 	}
 	return len(projects), nil
+}
+
+// FetchApplication 返回申请书内容
+func FetchApplication(client *http.Client, proId int) ([]byte, error) {
+	payload, err := json.Marshal(applicationRequest{ProId: proId})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", ApplicationURL, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", userAgent)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("proId %d HTTP %d: %s", proId, resp.StatusCode, bytes.TrimSpace(data))
+	}
+
+	// 没有申请书
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	return data, nil
+}
+
+// SaveApplication 保存申请书, 返回文件路径
+func SaveApplication(p Project, data []byte) (string, error) {
+	if err := os.MkdirAll(ApplicationDir, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(ApplicationDir, fmt.Sprintf("%s.pdf", p.ProgramCode)) //	因为项目名称里会有"/"之类的
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "", err
+	}
+	return path, nil
 }
