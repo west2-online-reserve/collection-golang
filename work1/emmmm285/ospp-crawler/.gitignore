@@ -1,0 +1,7 @@
+data.json
+main
+main.exe
+*.swp
+*.swo
+.idea/
+.vscode/

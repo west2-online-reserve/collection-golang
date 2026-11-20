@@ -1,0 +1,8 @@
+# PDF文件
+/ospp-crawler/PDF/
+
+# SQLite数据库
+/ospp-crawler/data
+
+#JSON 文件
+/ospp-crawler/data.json

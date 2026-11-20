@@ -1,0 +1,42 @@
+package main
+import (
+	"fmt"
+)
+// generate函数源源不断向通道ch发送从2开始递增的整数：2,3,4,5,6,7...
+func generate(ch chan int) {
+	for i := 2; ; i++ {
+		ch <- i // 把i发送进通道ch
+	}
+    //ch是无缓冲通道，读入一个数字后堵塞
+}
+// filter函数过滤器goroutine：从in通道拿数字，不能被prime整除的数字转发到out通道
+// prime：当前素数，用来做过滤规则，能整除它的就是合数，直接丢弃
+func filter(in chan int, out chan int, prime int) {
+	for {                  //无限次循环，直到in内无数字阻塞，达到过滤的效果
+		num := <-in        // 从in通道(从main函数的内容来看这面in即ch)读取一个数字（后generate又生成一个数放入ch通道）
+		if num%prime != 0 { // 把不能被prime整除的数传给out通道
+			out <- num
+		}
+	}
+}
+func main() {
+	ch := make(chan int) // 创建初始通道，作为整个流水线的起点
+	go generate(ch)      // 启动生产者goroutine，持续生产2,3,4,5...
+	// 循环6次，找出前6个素数
+	for i := 0; i < 6; i++ {
+		prime := <-ch          // 从当前流水线头部取出一个数，这个数一定是素数
+		fmt.Printf("prime:%d\n", prime)
+		out := make(chan int)  // 新建下游通道
+		go filter(ch, out, prime) // 去掉prime的倍数，直到下一个素数
+		ch = out               // ch指向out通道，让ch从out通道内取值，即下一轮ch从out拿到的是prime的下一个素数
+	}
+}
+
+问题1：这个代码实现了什么功能？
+答：这个代码实现了取从2开始的前6个素数。
+
+问题2：这个代码利用了golang的什么特性？
+答：利用了Go的并发模型Goroutine：轻量级协程。实现多函数多模块运行。
+
+问题3：这个代码相较于普通写法，是否有性能上的提升？（性能提升：求解速度更快了）
+答：没有，甚至更慢。
